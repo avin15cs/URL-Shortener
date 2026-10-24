@@ -1,0 +1,112 @@
+# 💻 Developer Setup & Contribution Guide
+
+This guide walks through local environment setup, running tests, database management, and best practices.
+
+---
+
+## 1. Prerequisites
+
+Before starting, ensure you have the following installed on your machine:
+* **Java**: JDK 17 or higher (`java -version`)
+* **Maven**: 3.8+ (`mvn -version`)
+* **Node.js**: 18+ or 20+ (`node -v`)
+* **Docker & Docker Compose**: (Optional, for containerized run)
+
+---
+
+## 2. Running Locally for Development
+
+### A. Backend Development (Spring Boot)
+
+The default profile uses an in-memory **H2 database**, so no external database is needed for local dev:
+
+```bash
+cd backend
+mvn spring-boot:run
+```
+
+* **API Endpoint**: `http://localhost:8080`
+* **H2 Web Console**: `http://localhost:8080/h2-console`
+  * JDBC URL: `jdbc:h2:mem:urlshortener`
+  * Username: `sa`
+  * Password: *(empty)*
+* **Health Check**: `http://localhost:8080/actuator/health`
+
+### B. Frontend Development (React + Vite)
+
+In a separate terminal:
+
+```bash
+cd frontend
+npm install
+npm run dev
+```
+
+* **Vite Dev Server**: `http://localhost:5173`
+* Vite automatically proxies `/api` and shortcode requests to the backend at `http://localhost:8080`.
+
+---
+
+## 3. Running with Docker Compose (Full Stack + PostgreSQL)
+
+To test the complete production-like stack locally with a real PostgreSQL database:
+
+```bash
+docker compose up --build
+```
+
+Services started:
+* **PostgreSQL 15**: `localhost:5432`
+* **Backend**: `localhost:8080`
+* **Frontend**: `localhost:80` (or `http://localhost`)
+
+To stop all containers and retain data volume:
+```bash
+docker compose down
+```
+
+To stop containers and wipe database volumes:
+```bash
+docker compose down -v
+```
+
+---
+
+## 4. Running Tests
+
+### Backend Unit Tests:
+```bash
+cd backend
+mvn test
+```
+
+### Frontend Linting & Build Verification:
+```bash
+cd frontend
+npm run build
+npm run lint
+```
+
+---
+
+## 5. Git Workflow for Features
+
+Always branch off `dev`:
+
+```bash
+# 1. Update your local dev branch
+git checkout dev
+git pull origin dev
+
+# 2. Create your feature branch
+git checkout -b feature/my-new-feature
+
+# 3. Make changes and commit
+git add .
+git commit -m "feat: description of feature"
+
+# 4. Push to origin
+git push -u origin feature/my-new-feature
+
+# 5. Open a Pull Request on GitHub targeting 'dev'
+```
