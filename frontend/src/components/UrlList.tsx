@@ -2,10 +2,6 @@ import React from 'react';
 import toast from 'react-hot-toast';
 import {
   Link2,
-  Copy,
-  ExternalLink,
-  Trash2,
-  MousePointerClick,
   RefreshCw,
   Globe,
 } from 'lucide-react';

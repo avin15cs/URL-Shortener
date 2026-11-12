@@ -13,7 +13,37 @@ on:
       - release
   workflow_dispatch:
 
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
 jobs:
+  # ==========================================
+  # Branch Promotion Policy
+  # ==========================================
+  promotion-policy:
+    name: Branch Promotion Policy
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Validate promotion path
+        env:
+          BASE_BRANCH: ${{ github.base_ref }}
+          HEAD_BRANCH: ${{ github.head_ref }}
+        run: |
+          if [[ "$BASE_BRANCH" == "release" && "$HEAD_BRANCH" != "dev" ]]; then
+            echo "Only dev may be promoted into release."
+            exit 1
+          fi
+
+          if [[ "$BASE_BRANCH" == "main" && "$HEAD_BRANCH" != "release" ]]; then
+            echo "Only release may be promoted into main."
+            exit 1
+          fi
+
   # ==========================================
   # Frontend Verification (React + Vite + TS)
   # ==========================================
@@ -31,12 +61,15 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: 20
+          node-version: 22
           cache: 'npm'
           cache-dependency-path: frontend/package-lock.json
 
       - name: Install dependencies
         run: npm ci
+
+      - name: Lint frontend
+        run: npm run lint
 
       - name: Build frontend
         run: npm run build
@@ -62,11 +95,11 @@ jobs:
       - name: Checkout repository
         uses: actions/checkout@v4
 
-      - name: Set up JDK 17
+      - name: Set up JDK 21
         uses: actions/setup-java@v4
         with:
           distribution: 'temurin'
-          java-version: '17'
+          java-version: '21'
           cache: 'maven'
 
       - name: Run Unit Tests
