@@ -22,6 +22,7 @@ This document tracks every major engineering milestone, architectural decision, 
 | **12. Release Readiness & Promotion Policy** | v1.0.5 | ✅ Completed | Repaired ESLint configuration, enforced frontend lint in CI, added least-privilege CI permissions, and restricted production promotions to `dev` → `main`. |
 | **13. Open Source — Public Repo + Branch Rulesets** | v1.0.6 | ✅ Completed | Repository made public; no-bypass rulesets block direct changes and require CI-gated PRs for `dev` and `main`; GitHub secret scanning, push protection, and Dependabot protections enabled. |
 | **14. Public Repository Security Hardening** | v1.0.7 | ✅ Completed | Removed known npm advisories with exact Vite 7.3.8/plugin-react 5.2.0 upgrades, raised the Node floor to 22.12, and limited local PostgreSQL exposure to loopback. |
+| **15. Roadmap Issue & Project Sync** | v1.0.8 | ✅ Completed | `docs/ROADMAP.md` declaratively manages owned GitHub issues, labels, milestones, and optional GitHub Project membership through a tested Actions workflow. |
 
 ---
 
@@ -143,3 +144,9 @@ This document tracks every major engineering milestone, architectural decision, 
 * Raised the frontend Node.js requirement to `22.12.0`, matching Vite's supported engine range.
 * Bound the local PostgreSQL host port to `127.0.0.1` so Docker development credentials are not exposed on all host interfaces.
 * Pinned all Docker build/runtime tags and hardened the PostgreSQL image with current Alpine packages plus `gosu` 1.19 rebuilt from immutable commit `6456aaa` using Go 1.27.4.
+
+### Phase 13: Roadmap Issue and Project Synchronization
+* Made `docs/ROADMAP.md` the declarative source for roadmap issues, labels, and milestones.
+* Added stable task IDs and an explicit ownership marker so the automation never claims or closes unrelated issues based on title alone.
+* Added parser tests and roadmap validation to the existing protected backend CI check.
+* Added optional GitHub Project v2 synchronization using a separately configured `PROJECT_TOKEN`; issue synchronization continues when that secret is absent.

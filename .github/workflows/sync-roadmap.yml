@@ -1,0 +1,43 @@
+name: Sync Roadmap
+
+on:
+  push:
+    branches: [dev]
+    paths:
+      - 'docs/ROADMAP.md'
+      - '.github/scripts/sync_roadmap.py'
+      - '.github/scripts/test_sync_roadmap.py'
+      - '.github/workflows/sync-roadmap.yml'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  issues: write
+
+jobs:
+  sync-roadmap:
+    name: Roadmap Issue and Project Sync
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Test roadmap automation
+        run: python .github/scripts/test_sync_roadmap.py
+
+      - name: Validate roadmap
+        run: python .github/scripts/sync_roadmap.py --check
+
+      - name: Sync roadmap tasks to issues and project
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          PROJECT_TOKEN: ${{ secrets.PROJECT_TOKEN }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+          ROADMAP_PROJECT_TITLE: URL Shortener Roadmap
+        run: python .github/scripts/sync_roadmap.py

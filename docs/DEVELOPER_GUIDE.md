@@ -148,3 +148,41 @@ git push -u origin feature/my-new-feature
 
 # 5. Open a Pull Request on GitHub targeting 'dev'
 ```
+
+---
+
+## 6. Managing the Roadmap from Markdown
+
+[`ROADMAP.md`](ROADMAP.md) is the source of truth for planned work. When a roadmap
+change reaches `dev`, GitHub Actions creates or updates the corresponding labels,
+milestones, and owned issues. Marking a task complete closes its managed issue.
+
+Each task must end with a unique stable marker:
+
+```markdown
+- [ ] Add link expiry -- Support a configurable TTL <!-- roadmap-id: link-expiry -->
+```
+
+Do not rename a `roadmap-id` after synchronization. The workflow only changes issues
+that have both the `roadmap` label and its generated ownership marker, so unrelated
+issues with matching titles remain untouched.
+
+Issue synchronization uses the workflow's built-in `GITHUB_TOKEN` and needs no setup.
+To also create and maintain the repository's GitHub Project, add a repository Actions
+secret named `PROJECT_TOKEN`. Use a dedicated fine-grained personal access token with:
+
+* access limited to this repository;
+* read and write access to user Projects; and
+* read and write access to Issues.
+
+Create it under **GitHub Settings -> Developer settings -> Personal access tokens**, then
+add it under **Repository Settings -> Secrets and variables -> Actions**. Never commit
+or paste the token into `ROADMAP.md`. Without this secret, issue synchronization still
+works and the Project step is skipped explicitly.
+
+Validate roadmap syntax and automation locally with:
+
+```bash
+python .github/scripts/test_sync_roadmap.py
+python .github/scripts/sync_roadmap.py --check
+```
