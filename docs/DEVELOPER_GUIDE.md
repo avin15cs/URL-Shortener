@@ -9,7 +9,7 @@ This guide walks through local environment setup, running tests, database manage
 Before starting, ensure you have the following installed on your machine:
 * **Java**: JDK 21 or higher (`java -version`)
 * **Maven**: 3.8+ (`mvn -version`)
-* **Node.js**: 22+ (Active LTS, `node -v`)
+* **Node.js**: 22.12+ (`node -v`)
 * **Docker & Docker Compose**: (Optional, for containerized run)
 
 ---
@@ -59,7 +59,7 @@ docker compose up --build
 ```
 
 Services started:
-* **PostgreSQL 15.19** (`postgres:15.19-alpine3.24`): `localhost:5432`
+* **PostgreSQL 15.19** (hardened local image based on `postgres:15.19-alpine3.24`): `127.0.0.1:5432` (host loopback only)
 * **Backend**: `localhost:8080`
 * **Frontend**: `localhost:80` (or `http://localhost`)
 
@@ -67,11 +67,13 @@ Docker Compose activates the `postgres-dev` Spring profile. Hibernate uses `ddl-
 for this local development database. The `prod` profile remains on `ddl-auto: validate` and
 must be paired with Liquibase before the first persistent deployment.
 
-The PostgreSQL image is pinned to an exact database and Alpine version so a future pull does
-not silently change either version. To start only PostgreSQL, verify it, and open `psql`:
+The PostgreSQL base image is pinned to an exact database and Alpine version. The local
+Dockerfile applies current Alpine 3.24 security updates and rebuilds the entrypoint's `gosu`
+helper from its pinned upstream source commit. To build/start only PostgreSQL, verify it,
+and open `psql`:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d --build postgres
 docker compose ps
 docker exec -it urlshortener-db psql -U postgres -d urlshortener
 ```
