@@ -1,6 +1,5 @@
 import React, { useState } from 'react';
 import {
-  Link2,
   Copy,
   Check,
   ExternalLink,

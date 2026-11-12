@@ -7,9 +7,9 @@ This guide walks through local environment setup, running tests, database manage
 ## 1. Prerequisites
 
 Before starting, ensure you have the following installed on your machine:
-* **Java**: JDK 17 or higher (`java -version`)
+* **Java**: JDK 21 or higher (`java -version`)
 * **Maven**: 3.8+ (`mvn -version`)
-* **Node.js**: 18+ or 20+ (`node -v`)
+* **Node.js**: 22+ (Active LTS, `node -v`)
 * **Docker & Docker Compose**: (Optional, for containerized run)
 
 ---
@@ -25,12 +25,15 @@ cd backend
 mvn spring-boot:run
 ```
 
-* **API Endpoint**: `http://localhost:8080`
-* **H2 Web Console**: `http://localhost:8080/h2-console`
-  * JDBC URL: `jdbc:h2:mem:urlshortener`
+* **API Base**: `http://localhost:8080`
+* **Swagger UI Docs**: `http://localhost:8080/swagger-ui.html`
+* **OpenAPI Spec**: `http://localhost:8080/v3/api-docs`
+* **Health Check**: `http://localhost:8080/actuator/health`
+* **H2 Web Console**: `http://localhost:8080/api/h2-console/`
+  * JDBC URL: `jdbc:h2:mem:urlshortenerdb`
   * Username: `sa`
   * Password: *(empty)*
-* **Health Check**: `http://localhost:8080/actuator/health`
+* Hibernate creates and drops the disposable H2 schema from the JPA mappings.
 
 ### B. Frontend Development (React + Vite)
 
@@ -56,9 +59,42 @@ docker compose up --build
 ```
 
 Services started:
-* **PostgreSQL 15**: `localhost:5432`
+* **PostgreSQL 15.19** (`postgres:15.19-alpine3.24`): `localhost:5432`
 * **Backend**: `localhost:8080`
 * **Frontend**: `localhost:80` (or `http://localhost`)
+
+Docker Compose activates the `postgres-dev` Spring profile. Hibernate uses `ddl-auto: update`
+for this local development database. The `prod` profile remains on `ddl-auto: validate` and
+must be paired with Liquibase before the first persistent deployment.
+
+The PostgreSQL image is pinned to an exact database and Alpine version so a future pull does
+not silently change either version. To start only PostgreSQL, verify it, and open `psql`:
+
+```bash
+docker compose up -d postgres
+docker compose ps
+docker exec -it urlshortener-db psql -U postgres -d urlshortener
+```
+
+Use `\q` to leave `psql`.
+
+### Connecting with DataGrip or IntelliJ IDEA Ultimate
+
+Create a PostgreSQL data source with these local-development settings:
+
+| Setting | Value |
+| :--- | :--- |
+| Host | `localhost` |
+| Port | `5432` |
+| Database | `urlshortener` |
+| User | `postgres` |
+| Password | `password` |
+| Schema | `public` |
+| JDBC URL | `jdbc:postgresql://localhost:5432/urlshortener` |
+
+Download the PostgreSQL driver when the IDE prompts, then use **Test Connection**. These
+credentials are intentionally local-only and must not be reused in a shared or production
+environment.
 
 To stop all containers and retain data volume:
 ```bash
