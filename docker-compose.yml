@@ -1,9 +1,7 @@
-version: '3.8'
-
 services:
   # ---- PostgreSQL Database ----
   postgres:
-    image: postgres:15-alpine
+    image: postgres:15.19-alpine3.24
     container_name: urlshortener-db
     restart: unless-stopped
     environment:
@@ -31,7 +29,7 @@ services:
       postgres:
         condition: service_healthy
     environment:
-      SPRING_PROFILES_ACTIVE: prod
+      SPRING_PROFILES_ACTIVE: postgres-dev
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: urlshortener

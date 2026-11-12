@@ -3,9 +3,9 @@
 This repository is a full-stack URL Shortener monorepo. When assisting in this repository, follow these project rules:
 
 ## Architecture & Stack
-- **Frontend** (`frontend/`): React 18, Vite, TypeScript, Vanilla CSS design system.
-- **Backend** (`backend/`): Spring Boot 3.2 (Java 17, Maven, Spring Data JPA).
-- **Database**: H2 in-memory for local development (`application.yml`), PostgreSQL 15 for production (`application-prod.yml`).
+- **Frontend** (`frontend/`): React 18, Vite, TypeScript, Node 22 LTS, Vanilla CSS design system.
+- **Backend** (`backend/`): Spring Boot 4.1.2 (Java 21, Maven, Spring Data JPA, SpringDoc OpenAPI 3.1.1, Actuator).
+- **Database**: H2 in-memory for local development (`application.yml` at `/api/h2-console/`), with PostgreSQL 15.19 pinned for Docker development and PostgreSQL 15 for production (`application-prod.yml`).
 - **Orchestration**: `docker-compose.yml` (PostgreSQL + Backend + Frontend Nginx).
 
 ## Git Branching Rules

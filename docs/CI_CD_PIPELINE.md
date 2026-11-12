@@ -4,6 +4,26 @@ This repository uses **GitHub Actions** for automated continuous integration, te
 
 ---
 
+## Branch Promotion Policy
+
+Changes flow through pull requests in this order:
+
+1. Feature or completion branch → `dev`
+2. `dev` → `release`
+3. `release` → `main`
+
+The CI `Branch Promotion Policy` job rejects pull requests into `release` from any branch
+other than `dev`, and rejects pull requests into `main` from any branch other than `release`.
+The CI workflow uses read-only repository permissions and cancels superseded runs for the
+same ref. CD runs are serialized per ref so image publication and release creation do not
+overlap.
+
+Recommended GitHub branch protection for all three long-lived branches requires pull
+requests, successful CI jobs, resolved conversations, linear history, and disabled force
+pushes/deletions. GitHub requires a paid plan to enforce these rules on a private repository.
+
+---
+
 ## 1. Git Branching Strategy
 
 We follow a GitFlow-inspired branching strategy:
@@ -35,13 +55,13 @@ Runs on:
 #### Jobs:
 1. **`frontend-ci`**:
    - Environment: `ubuntu-latest`
-   - Node.js 20 with `npm` caching.
+   - Node.js 22 (Active LTS) with `npm` caching.
    - Installs dependencies: `npm ci`
    - Compiles TypeScript & bundles Vite: `npm run build`
    - Saves production build artifacts (`frontend-dist`).
 2. **`backend-ci`**:
    - Environment: `ubuntu-latest`
-   - JDK 17 (Eclipse Temurin) with Maven caching.
+   - JDK 21 (Eclipse Temurin) with Maven caching.
    - Runs tests: `mvn clean test -B`
    - Packages JAR: `mvn package -DskipTests -B`
    - Saves build artifact (`backend-jar`).

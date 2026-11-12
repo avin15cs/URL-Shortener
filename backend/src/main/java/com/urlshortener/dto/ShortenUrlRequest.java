@@ -17,8 +17,8 @@ public class ShortenUrlRequest {
 
     @Size(max = 50, message = "Custom alias must not exceed 50 characters")
     @Pattern(
-        regexp = "^[a-zA-Z0-9_-]*$",
-        message = "Custom alias can only contain letters, numbers, hyphens, and underscores"
+        regexp = "^$|^[a-zA-Z0-9_-]{3,50}$",
+        message = "Custom alias must be 3 to 50 letters, numbers, hyphens, or underscores"
     )
     private String customAlias;
 

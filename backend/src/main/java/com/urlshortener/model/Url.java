@@ -25,7 +25,7 @@ public class Url {
     @Column(name = "original_url", nullable = false, length = 2048)
     private String originalUrl;
 
-    @Column(name = "short_code", nullable = false, unique = true, length = 10)
+    @Column(name = "short_code", nullable = false, unique = true, length = 50)
     private String shortCode;
 
     @Column(name = "custom_alias", length = 50)

@@ -1,5 +1,5 @@
 import React from 'react';
-import { Scissors, Github, Heart } from 'lucide-react';
+import { Scissors, Heart } from 'lucide-react';
 
 const Footer: React.FC = () => {
   const year = new Date().getFullYear();
