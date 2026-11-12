@@ -12,14 +12,14 @@ This document tracks every major engineering milestone, architectural decision, 
 | **2. Spring Boot 4 Backend** | v1.0.0-alpha | ✅ Completed | Java 21, Spring Web, Spring Data JPA, H2 + PostgreSQL support, URL hashing, redirects, atomic clicks. |
 | **3. React + Vite Frontend** | v1.0.0-alpha | ✅ Completed | Modern glassmorphic SPA, TypeScript, Lucide icons, Toast alerts, instant shortcode copy, stats dashboard. |
 | **4. Docker Containerization** | v1.0.0-beta | ✅ Completed | Multi-stage Dockerfiles for backend & frontend, `docker-compose.yml` with PostgreSQL 15. |
-| **5. Remote Git & Branching Strategy** | v1.0.0-rc | ✅ Completed | Repository linked to `avin15cs/URL-Shortener`, branches initialized: `main`, `release`, `dev`. |
+| **5. Remote Git & Branching Strategy** | v1.0.0-rc | ✅ Completed | Repository linked to `avin15cs/URL-Shortener`; active flow simplified to `dev` → `main`. |
 | **6. CI/CD Automation (GitHub Actions)**| v1.0.0 | ✅ Completed | `ci.yml` (tests, lint, build, Docker validation) and `cd.yml` (GHCR package release & semantic tags). |
 | **7. Architecture & Developer Docs** | v1.0.0 | ✅ Completed | Full documentation suite (`ARCHITECTURE.md`, `CI_CD_PIPELINE.md`, `DEVELOPER_GUIDE.md`, `PROJECT_LOG.md`). |
 | **8. Observability & Swagger Docs** | v1.0.1 | ✅ Completed | SpringDoc OpenAPI 3.1.1 (`/swagger-ui.html`), Actuator (`/actuator/**`), YAML reserved paths & CORS. |
 | **9. Node 22 LTS Security Hardening**| v1.0.2 | ✅ Completed | Node.js 22 LTS Docker image, CI/CD runner update, ESLint config, and full build validation. |
 | **10. Sqids Identifier Encoding** | v1.0.3 | ✅ Completed | Replaced random tokens with reversible ID-based Sqids and unified aliases in the public-code namespace. |
 | **11. Local PostgreSQL Docker Hardening** | v1.0.4 | ✅ Completed | Pinned PostgreSQL 15.19/Alpine 3.24, separated the local `postgres-dev` profile, and repaired backend container health checks. |
-| **12. Release Readiness & Promotion Policy** | v1.0.5 | ✅ Completed | Repaired ESLint configuration, enforced frontend lint in CI, added least-privilege CI permissions, and restricted promotions to `dev` → `release` → `main`. |
+| **12. Release Readiness & Promotion Policy** | v1.0.5 | ✅ Completed | Repaired ESLint configuration, enforced frontend lint in CI, added least-privilege CI permissions, and restricted production promotions to `dev` → `main`. |
 
 ---
 
@@ -76,7 +76,7 @@ This document tracks every major engineering milestone, architectural decision, 
 
 ### Phase 5: CI/CD Pipeline Setup
 * **`.github/workflows/ci.yml`**:
-  * Automatically tests every PR and commit pushed to `main`, `dev`, or `release`.
+  * Automatically tests every PR and commit pushed to `main` or `dev`.
   * Checks Node 22 / TypeScript / Vite build.
   * Checks Java 21 Temurin / Maven unit tests & JAR packaging.
   * Tests Docker multi-stage builds.
@@ -129,6 +129,7 @@ This document tracks every major engineering milestone, architectural decision, 
 ### Phase 11: Release Readiness & Promotion Policy
 * Repaired the ESLint configuration and made linting a dedicated CI step before the frontend build.
 * Set CI workflow permissions to read-only and added concurrency controls to avoid redundant CI runs.
-* Added a CI promotion-policy check: only `dev` may target `release`, and only `release` may target `main`.
+* Simplified the promotion model to two long-lived branches: feature/fix branches target `dev`, and only `dev` may target `main`.
 * Added serialized CD concurrency per branch to prevent overlapping image publication or release creation.
-* Defined branch-protection rules for `dev`, `release`, and `main`; applying them to this private repository requires GitHub Pro or changing the repository visibility, so they remain an account-level follow-up.
+* Pinned generated release tags to the triggering `release` commit with `target_commitish: ${{ github.sha }}`, preventing tags from falling back to the older default-branch commit.
+* Defined branch-protection rules for `dev` and `main`; applying them to this private repository requires GitHub Pro or changing the repository visibility, so they remain an account-level follow-up.
