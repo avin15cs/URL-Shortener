@@ -9,16 +9,15 @@ This repository uses **GitHub Actions** for automated continuous integration, te
 Changes flow through pull requests in this order:
 
 1. Feature or completion branch → `dev`
-2. `dev` → `release`
-3. `release` → `main`
+2. `dev` → `main`
 
-The CI `Branch Promotion Policy` job rejects pull requests into `release` from any branch
-other than `dev`, and rejects pull requests into `main` from any branch other than `release`.
+The CI `Branch Promotion Policy` job rejects pull requests into `main` from any branch
+other than `dev`.
 The CI workflow uses read-only repository permissions and cancels superseded runs for the
 same ref. CD runs are serialized per ref so image publication and release creation do not
 overlap.
 
-Recommended GitHub branch protection for all three long-lived branches requires pull
+Recommended GitHub branch protection for both long-lived branches requires pull
 requests, successful CI jobs, resolved conversations, linear history, and disabled force
 pushes/deletions. GitHub requires a paid plan to enforce these rules on a private repository.
 
@@ -26,20 +25,18 @@ pushes/deletions. GitHub requires a paid plan to enforce these rules on a privat
 
 ## 1. Git Branching Strategy
 
-We follow a GitFlow-inspired branching strategy:
+We follow a lightweight two-branch strategy:
 
 ```
-[feature/xxx] ──> [dev] ──(PR)──> [release] ──(PR)──> [main]
-                    ▲                 ▲                  ▲
-                    │                 │                  │
-                CI runs           CI + Docker        CI + Production
-               all tests         Auto-Tagged           Containers
-                                   Release             to GHCR
+[feature/xxx] ──> [dev] ──(PR)──> [main]
+                    ▲                 ▲
+                    │                 │
+                CI runs       CI + Production Containers
+               all tests       + GitHub Release to GHCR
 ```
 
 * **`dev`**: Daily integration branch. Active development merges here. Every push triggers full CI checks.
-* **`release`**: Release candidates. Pushing here triggers CI, builds production Docker images, tags a new version (e.g. `v1.0.20261024...`), and publishes a **GitHub Release**.
-* **`main`**: Production-ready code. Represents the current live state. Pushes automatically build and tag `:latest` container images on GHCR.
+* **`main`**: Production-ready code promoted only from `dev`. Pushes build and tag `:latest` container images on GHCR and publish a **GitHub Release**.
 
 ---
 
@@ -48,8 +45,8 @@ We follow a GitFlow-inspired branching strategy:
 ### Pipeline 1: Continuous Integration (`.github/workflows/ci.yml`)
 
 Runs on:
-- Every push to `dev`, `release`, and `main`
-- Every Pull Request targeting `dev`, `release`, or `main`
+- Every push to `dev` and `main`
+- Every Pull Request targeting `dev` or `main`
 - Manual execution via `workflow_dispatch`
 
 #### Jobs:
@@ -73,7 +70,7 @@ Runs on:
 ### Pipeline 2: Continuous Delivery (`.github/workflows/cd.yml`)
 
 Runs on:
-- Pushes to `release` and `main`
+- Pushes to `main`
 
 #### Features:
 1. **GitHub Container Registry (GHCR) Publishing**:
@@ -82,7 +79,7 @@ Runs on:
      - `ghcr.io/avin15cs/url-shortener-backend:<sha>` and `:latest`
      - `ghcr.io/avin15cs/url-shortener-frontend:<sha>` and `:latest`
 2. **Automated GitHub Release**:
-   - When a commit is merged into `release`, it automatically creates an official GitHub Release with generated changelog notes.
+   - When a promotion PR is merged into `main`, it automatically creates an official GitHub Release with generated changelog notes, targeting that exact commit.
 
 ---
 

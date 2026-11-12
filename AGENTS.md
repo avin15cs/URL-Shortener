@@ -22,24 +22,23 @@
 
 ## 2. Git Branching Strategy
 
-Always respect the 3-branch convention:
+Always respect the 2-branch convention:
 * **`dev`**: **Default active branch for development**. All feature work, fixes, and PRs must target `dev`.
-* **`release`**: Release candidate staging branch. Merging into `release` triggers semantic version tagging and releases.
-* **`main`**: Production branch. Contains stable, deployable code.
+* **`main`**: Production branch. Only promotion PRs from `dev` may target `main`; merging publishes containers and creates a GitHub Release.
 
 ---
 
 ## 3. CI/CD Workflows (`.github/workflows/`)
 
-* **`ci.yml`**: Runs on push/PR to `main`, `dev`, `release`.
+* **`ci.yml`**: Runs on push/PR to `main` and `dev`.
   * Runs frontend linting & Vite build.
   * Runs backend tests (`mvn test`) and JAR packaging.
   * Verifies multi-stage Docker builds.
-* **`cd.yml`**: Runs on push to `main` and `release`.
+* **`cd.yml`**: Runs on push to `main`.
   * Builds and publishes Docker images to **GitHub Container Registry**:
     * `ghcr.io/avin15cs/url-shortener-backend`
     * `ghcr.io/avin15cs/url-shortener-frontend`
-  * Automatically creates GitHub Releases with changelogs on `release` branch updates.
+  * Automatically creates GitHub Releases with changelogs from the merged `main` commit.
 
 ---
 
