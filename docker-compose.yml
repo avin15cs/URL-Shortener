@@ -1,7 +1,10 @@
 services:
   # ---- PostgreSQL Database ----
   postgres:
-    image: postgres:15.19-alpine3.24
+    build:
+      context: ./postgres
+      dockerfile: Dockerfile
+    image: url-shortener-postgres:15.19-alpine3.24
     container_name: urlshortener-db
     restart: unless-stopped
     environment:
@@ -9,7 +12,9 @@ services:
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
-      - "5432:5432"
+      # Keep the development database reachable from local IDEs without exposing it
+      # on every host network interface.
+      - "127.0.0.1:5432:5432"
     volumes:
       - postgres_data:/var/lib/postgresql/data
     healthcheck:

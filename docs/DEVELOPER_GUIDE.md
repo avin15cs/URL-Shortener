@@ -9,7 +9,7 @@ This guide walks through local environment setup, running tests, database manage
 Before starting, ensure you have the following installed on your machine:
 * **Java**: JDK 21 or higher (`java -version`)
 * **Maven**: 3.8+ (`mvn -version`)
-* **Node.js**: 22+ (Active LTS, `node -v`)
+* **Node.js**: 22.12+ (`node -v`)
 * **Docker & Docker Compose**: (Optional, for containerized run)
 
 ---
@@ -59,7 +59,7 @@ docker compose up --build
 ```
 
 Services started:
-* **PostgreSQL 15.19** (`postgres:15.19-alpine3.24`): `localhost:5432`
+* **PostgreSQL 15.19** (hardened local image based on `postgres:15.19-alpine3.24`): `127.0.0.1:5432` (host loopback only)
 * **Backend**: `localhost:8080`
 * **Frontend**: `localhost:80` (or `http://localhost`)
 
@@ -67,11 +67,13 @@ Docker Compose activates the `postgres-dev` Spring profile. Hibernate uses `ddl-
 for this local development database. The `prod` profile remains on `ddl-auto: validate` and
 must be paired with Liquibase before the first persistent deployment.
 
-The PostgreSQL image is pinned to an exact database and Alpine version so a future pull does
-not silently change either version. To start only PostgreSQL, verify it, and open `psql`:
+The PostgreSQL base image is pinned to an exact database and Alpine version. The local
+Dockerfile applies current Alpine 3.24 security updates and rebuilds the entrypoint's `gosu`
+helper from its pinned upstream source commit. To build/start only PostgreSQL, verify it,
+and open `psql`:
 
 ```bash
-docker compose up -d postgres
+docker compose up -d --build postgres
 docker compose ps
 docker exec -it urlshortener-db psql -U postgres -d urlshortener
 ```
@@ -145,4 +147,41 @@ git commit -m "feat: description of feature"
 git push -u origin feature/my-new-feature
 
 # 5. Open a Pull Request on GitHub targeting 'dev'
+```
+
+---
+
+## 6. Managing the Roadmap from Markdown
+
+[`ROADMAP.md`](ROADMAP.md) is the source of truth for planned work. When a roadmap
+change reaches `dev`, GitHub Actions creates or updates the corresponding labels,
+milestones, and owned issues. Marking a task complete closes its managed issue.
+
+Each task must end with a unique stable marker:
+
+```markdown
+- [ ] Add link expiry -- Support a configurable TTL <!-- roadmap-id: link-expiry -->
+```
+
+Do not rename a `roadmap-id` after synchronization. The workflow only changes issues
+that have both the `roadmap` label and its generated ownership marker, so unrelated
+issues with matching titles remain untouched.
+
+Issue synchronization uses the workflow's built-in `GITHUB_TOKEN` and needs no setup.
+To also create and maintain the repository's GitHub Project, add a repository Actions
+secret named `PROJECT_TOKEN`. Because this repository's Project is owned by a personal
+account, use a personal access token (classic) with the `project` and `repo` scopes.
+GitHub currently does not support fine-grained personal access tokens for user-owned
+Projects. Give the token a short expiration and rotate it when it expires.
+
+Create it under **GitHub Settings -> Developer settings -> Personal access tokens**, then
+add it under **Repository Settings -> Secrets and variables -> Actions**. Never commit
+or paste the token into `ROADMAP.md`. Without this secret, issue synchronization still
+works and the Project step is skipped explicitly.
+
+Validate roadmap syntax and automation locally with:
+
+```bash
+python .github/scripts/test_sync_roadmap.py
+python .github/scripts/sync_roadmap.py --check
 ```
