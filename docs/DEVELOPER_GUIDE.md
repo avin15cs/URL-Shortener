@@ -169,11 +169,10 @@ issues with matching titles remain untouched.
 
 Issue synchronization uses the workflow's built-in `GITHUB_TOKEN` and needs no setup.
 To also create and maintain the repository's GitHub Project, add a repository Actions
-secret named `PROJECT_TOKEN`. Use a dedicated fine-grained personal access token with:
-
-* access limited to this repository;
-* read and write access to user Projects; and
-* read and write access to Issues.
+secret named `PROJECT_TOKEN`. Because this repository's Project is owned by a personal
+account, use a personal access token (classic) with the `project` and `repo` scopes.
+GitHub currently does not support fine-grained personal access tokens for user-owned
+Projects. Give the token a short expiration and rotate it when it expires.
 
 Create it under **GitHub Settings -> Developer settings -> Personal access tokens**, then
 add it under **Repository Settings -> Secrets and variables -> Actions**. Never commit
