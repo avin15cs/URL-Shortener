@@ -131,4 +131,5 @@ This document tracks every major engineering milestone, architectural decision, 
 * Set CI workflow permissions to read-only and added concurrency controls to avoid redundant CI runs.
 * Added a CI promotion-policy check: only `dev` may target `release`, and only `release` may target `main`.
 * Added serialized CD concurrency per branch to prevent overlapping image publication or release creation.
+* Pinned generated release tags to the triggering `release` commit with `target_commitish: ${{ github.sha }}`, preventing tags from falling back to the older default-branch commit.
 * Defined branch-protection rules for `dev`, `release`, and `main`; applying them to this private repository requires GitHub Pro or changing the repository visibility, so they remain an account-level follow-up.
