@@ -66,6 +66,9 @@ Runs on:
 3. **`docker-check`**:
    - Builds both `backend/Dockerfile` and `frontend/Dockerfile` using Docker Buildx without pushing, catching container regression early.
 
+The backend CI job also tests the roadmap parser and validates every task's stable
+`roadmap-id`, so invalid Markdown cannot pass the existing protected-branch check.
+
 ---
 
 ### Pipeline 2: Continuous Delivery (`.github/workflows/cd.yml`)
@@ -81,6 +84,16 @@ Runs on:
      - `ghcr.io/avin15cs/url-shortener-frontend:<sha>` and `:latest`
 2. **Automated GitHub Release**:
    - When a promotion PR is merged into `main`, it automatically creates an official GitHub Release with generated changelog notes, targeting that exact commit.
+
+---
+
+### Pipeline 3: Roadmap Synchronization (`.github/workflows/sync-roadmap.yml`)
+
+Runs when roadmap automation files change on `dev`, or by manual dispatch. It validates
+`docs/ROADMAP.md`, synchronizes owned GitHub issues, labels, and milestones, and optionally
+adds those issues to the **URL Shortener Roadmap** GitHub Project. Project synchronization
+requires the repository Actions secret `PROJECT_TOKEN`; issue synchronization uses the
+built-in `GITHUB_TOKEN`.
 
 ---
 

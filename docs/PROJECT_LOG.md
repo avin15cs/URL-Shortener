@@ -144,3 +144,9 @@ This document tracks every major engineering milestone, architectural decision, 
 * Raised the frontend Node.js requirement to `22.12.0`, matching Vite's supported engine range.
 * Bound the local PostgreSQL host port to `127.0.0.1` so Docker development credentials are not exposed on all host interfaces.
 * Pinned all Docker build/runtime tags and hardened the PostgreSQL image with current Alpine packages plus `gosu` 1.19 rebuilt from immutable commit `6456aaa` using Go 1.27.4.
+
+### Phase 13: Roadmap Issue and Project Synchronization
+* Made `docs/ROADMAP.md` the declarative source for roadmap issues, labels, and milestones.
+* Added stable task IDs and an explicit ownership marker so the automation never claims or closes unrelated issues based on title alone.
+* Added parser tests and roadmap validation to the existing protected backend CI check.
+* Added optional GitHub Project v2 synchronization using a separately configured `PROJECT_TOKEN`; issue synchronization continues when that secret is absent.

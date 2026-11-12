@@ -95,6 +95,17 @@ jobs:
           java-version: '21'
           cache: 'maven'
 
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.12'
+
+      - name: Validate roadmap automation
+        working-directory: .
+        run: |
+          python .github/scripts/test_sync_roadmap.py
+          python .github/scripts/sync_roadmap.py --check
+
       - name: Run Unit Tests
         run: mvn clean test -B
 

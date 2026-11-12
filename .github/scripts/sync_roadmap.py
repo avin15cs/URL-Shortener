@@ -1,233 +1,438 @@
 #!/usr/bin/env python3
-"""
-sync_roadmap.py — Parses docs/ROADMAP.md and syncs tasks to GitHub Issues.
+"""Synchronize docs/ROADMAP.md with owned GitHub issues and a Project v2."""
 
-Rules:
-  - Each `- [ ] Title — description` line becomes a GitHub Issue (if not already open).
-  - Each `- [x] Title` line closes the matching open issue (if one exists).
-  - Phase headers `## Phase Name [label:X] [milestone:Y]` set the label and milestone
-    applied to all tasks in that phase.
-  - Issues created by this script are tagged with the `roadmap` label for easy filtering.
-  - Re-running is idempotent: existing open issues are skipped, not duplicated.
-"""
+from __future__ import annotations
 
+import argparse
 import json
 import os
 import re
-import subprocess
 import sys
+import urllib.error
+import urllib.parse
+import urllib.request
+from dataclasses import dataclass
+from pathlib import Path
 
-# ---------------------------------------------------------------------------
-# Config
-# ---------------------------------------------------------------------------
-ROADMAP_FILE = "docs/ROADMAP.md"
-REPO = os.environ.get("GITHUB_REPOSITORY", "avin15cs/URL-Shortener")
-GH = ["gh", "--repo", REPO]
+ROADMAP_FILE = Path("docs/ROADMAP.md")
+ROADMAP_LABEL = "roadmap"
+ROADMAP_LABEL_COLOR = "0075ca"
+ROADMAP_LABEL_DESCRIPTION = "Managed from docs/ROADMAP.md"
+MARKER_TEMPLATE = "<!-- roadmap-sync:id={task_id} -->"
 
-ROADMAP_LABEL        = "roadmap"
-ROADMAP_LABEL_COLOR  = "0075ca"
-ROADMAP_LABEL_DESC   = "Tracked in docs/ROADMAP.md"
-
-PHASE_RE   = re.compile(r"^## (.+?)(?:\s*\[label:([^\]]+)\])?(?:\s*\[milestone:([^\]]+)\])?")
-OPEN_RE    = re.compile(r"^- \[ \] (.+)")
-CLOSED_RE  = re.compile(r"^- \[x\] (.+)", re.IGNORECASE)
-EM_DASH_RE = re.compile(r"\s+[—–-]{1,2}\s+")  # em-dash, en-dash, or double-dash
-
-
-def run(cmd, **kwargs):
-    return subprocess.run(cmd, capture_output=True, text=True, **kwargs)
-
-
-# ---------------------------------------------------------------------------
-# Label helpers
-# ---------------------------------------------------------------------------
-def ensure_label(name: str, color: str = "ededed", description: str = ""):
-    run(GH + ["label", "create", name,
-               "--color", color,
-               "--description", description,
-               "--force"])
+HEADER_RE = re.compile(r"^##\s+(.+?)\s*$")
+META_RE = re.compile(r"\[(label|milestone):([^\]]+)]")
+TASK_RE = re.compile(r"^- \[([ xX])]\s+(.+?)\s*$")
+ID_RE = re.compile(
+    r"\s*<!--\s*roadmap-id:\s*([a-z0-9][a-z0-9_-]*)\s*-->\s*$"
+)
+MARKER_RE = re.compile(r"<!--\s*roadmap-sync:id=([a-z0-9][a-z0-9_-]*)\s*-->")
+DESCRIPTION_RE = re.compile(r"\s+(?:\u2014|\u2013|--)\s+", re.UNICODE)
 
 
-def ensure_milestone(name: str) -> str | None:
-    """Create milestone if missing; return its number as a string."""
-    list_result = run(GH + ["api", f"repos/{REPO}/milestones",
-                             "--jq", f'[.[] | select(.title=="{name}")] | first | .number'])
-    num = list_result.stdout.strip()
-    if num and num != "null":
-        return num
-    create_result = run(GH + ["api", f"repos/{REPO}/milestones",
-                               "--method", "POST",
-                               "--field", f"title={name}"])
-    data = json.loads(create_result.stdout or "{}")
-    return str(data.get("number", "")) or None
+@dataclass(frozen=True)
+class Task:
+    task_id: str
+    title: str
+    description: str
+    label: str | None
+    milestone: str | None
+    done: bool
 
 
-# ---------------------------------------------------------------------------
-# Issue helpers
-# ---------------------------------------------------------------------------
-def get_open_issues() -> dict[str, int]:
-    """Return {title: number} for all open issues."""
-    result = run(GH + ["issue", "list", "--state", "open",
-                        "--json", "title,number", "--limit", "500"])
-    return {i["title"]: i["number"] for i in json.loads(result.stdout or "[]")}
+def parse_roadmap(path: Path = ROADMAP_FILE) -> list[Task]:
+    tasks: list[Task] = []
+    seen_ids: set[str] = set()
+    current_label: str | None = None
+    current_milestone: str | None = None
 
+    for line_number, raw_line in enumerate(path.read_text(encoding="utf-8").splitlines(), 1):
+        line = raw_line.rstrip()
+        header = HEADER_RE.match(line)
+        if header:
+            metadata = {key: value.strip() for key, value in META_RE.findall(header.group(1))}
+            current_label = metadata.get("label") or None
+            current_milestone = metadata.get("milestone") or None
+            continue
 
-def issue_exists_closed(title: str) -> bool:
-    result = run(GH + ["issue", "list", "--state", "closed",
-                        "--search", f'"{title}" in:title',
-                        "--json", "title", "--limit", "50"])
-    items = json.loads(result.stdout or "[]")
-    return any(i["title"] == title for i in items)
+        task_match = TASK_RE.match(line)
+        if not task_match:
+            continue
 
+        raw_task = task_match.group(2).strip()
+        id_match = ID_RE.search(raw_task)
+        if not id_match:
+            raise ValueError(
+                f"{path}:{line_number}: roadmap task requires "
+                "<!-- roadmap-id: stable-id -->"
+            )
+        task_id = id_match.group(1)
+        if task_id in seen_ids:
+            raise ValueError(f"{path}:{line_number}: duplicate roadmap-id {task_id!r}")
+        seen_ids.add(task_id)
 
-def create_issue(title: str, body: str, labels: list[str], milestone: str | None):
-    args = GH + ["issue", "create", "--title", title, "--body", body]
-    for label in labels:
-        args += ["--label", label]
-    if milestone:
-        args += ["--milestone", milestone]
-    result = run(args)
-    if result.returncode == 0:
-        print(f"  ✅ Created issue: {title}")
-    else:
-        print(f"  ❌ Failed to create '{title}': {result.stderr.strip()}", file=sys.stderr)
+        task_text = ID_RE.sub("", raw_task).strip()
+        parts = DESCRIPTION_RE.split(task_text, maxsplit=1)
+        title = parts[0].strip()
+        if not title:
+            raise ValueError(f"{path}:{line_number}: task title cannot be empty")
 
+        tasks.append(
+            Task(
+                task_id=task_id,
+                title=title,
+                description=parts[1].strip() if len(parts) == 2 else "",
+                label=current_label,
+                milestone=current_milestone,
+                done=task_match.group(1).lower() == "x",
+            )
+        )
 
-def close_issue(number: int, title: str):
-    result = run(GH + ["issue", "close", str(number),
-                        "--comment", "✅ Marked as done in `docs/ROADMAP.md`."])
-    if result.returncode == 0:
-        print(f"  🔒 Closed issue #{number}: {title}")
-    else:
-        print(f"  ❌ Failed to close #{number}: {result.stderr.strip()}", file=sys.stderr)
-
-
-# ---------------------------------------------------------------------------
-# Parser
-# ---------------------------------------------------------------------------
-def parse_roadmap() -> list[dict]:
-    """
-    Returns a list of task dicts:
-      { title, description, label, milestone, done }
-    """
-    tasks = []
-    current_label = None
-    current_milestone = None
-
-    with open(ROADMAP_FILE, encoding="utf-8") as f:
-        for line in f:
-            line = line.rstrip()
-
-            # Phase header
-            m = PHASE_RE.match(line)
-            if m:
-                current_label     = (m.group(2) or "").strip() or None
-                current_milestone = (m.group(3) or "").strip() or None
-                continue
-
-            # Open task
-            m = OPEN_RE.match(line)
-            if m:
-                raw = m.group(1).strip()
-                parts = EM_DASH_RE.split(raw, maxsplit=1)
-                tasks.append({
-                    "title":       parts[0].strip(),
-                    "description": parts[1].strip() if len(parts) > 1 else "",
-                    "label":       current_label,
-                    "milestone":   current_milestone,
-                    "done":        False,
-                })
-                continue
-
-            # Closed/done task
-            m = CLOSED_RE.match(line)
-            if m:
-                raw = m.group(1).strip()
-                parts = EM_DASH_RE.split(raw, maxsplit=1)
-                tasks.append({
-                    "title":       parts[0].strip(),
-                    "description": parts[1].strip() if len(parts) > 1 else "",
-                    "label":       current_label,
-                    "milestone":   current_milestone,
-                    "done":        True,
-                })
-
+    if not tasks:
+        raise ValueError(f"{path}: no roadmap tasks found")
     return tasks
 
 
-# ---------------------------------------------------------------------------
-# Main
-# ---------------------------------------------------------------------------
-def main():
-    print(f"📋 Syncing ROADMAP.md → GitHub Issues for {REPO}")
+class GitHubClient:
+    def __init__(self, repository: str, token: str):
+        if "/" not in repository:
+            raise ValueError("GITHUB_REPOSITORY must use owner/repository format")
+        self.repository = repository
+        self.owner, self.repository_name = repository.split("/", 1)
+        self.token = token
 
-    # Ensure base roadmap label exists
-    ensure_label(ROADMAP_LABEL, ROADMAP_LABEL_COLOR, ROADMAP_LABEL_DESC)
+    def request(self, method: str, path: str, payload: dict | None = None):
+        url = path if path.startswith("https://") else f"https://api.github.com{path}"
+        data = json.dumps(payload).encode() if payload is not None else None
+        request = urllib.request.Request(
+            url,
+            data=data,
+            method=method,
+            headers={
+                "Accept": "application/vnd.github+json",
+                "Authorization": f"Bearer {self.token}",
+                "Content-Type": "application/json",
+                "User-Agent": "url-shortener-roadmap-sync",
+                "X-GitHub-Api-Version": "2022-11-28",
+            },
+        )
+        try:
+            with urllib.request.urlopen(request) as response:
+                body = response.read()
+                return json.loads(body) if body else None
+        except urllib.error.HTTPError as error:
+            details = error.read().decode(errors="replace")
+            raise RuntimeError(f"GitHub API {method} {url} failed: {error.code} {details}") from error
 
-    tasks       = parse_roadmap()
-    open_issues = get_open_issues()
+    def paged(self, path: str) -> list[dict]:
+        separator = "&" if "?" in path else "?"
+        page = 1
+        results: list[dict] = []
+        while True:
+            batch = self.request("GET", f"{path}{separator}per_page=100&page={page}")
+            if not batch:
+                return results
+            results.extend(batch)
+            if len(batch) < 100:
+                return results
+            page += 1
 
-    todo_count  = sum(1 for t in tasks if not t["done"])
-    done_count  = sum(1 for t in tasks if t["done"])
-    print(f"   Found {todo_count} open tasks, {done_count} completed tasks in ROADMAP.md")
-    print(f"   Found {len(open_issues)} open issues on GitHub\n")
+    def graphql(self, query: str, variables: dict):
+        result = self.request(
+            "POST",
+            "https://api.github.com/graphql",
+            {"query": query, "variables": variables},
+        )
+        if result.get("errors"):
+            raise RuntimeError(f"GitHub GraphQL failed: {json.dumps(result['errors'])}")
+        return result["data"]
 
-    milestone_cache: dict[str, str] = {}
+
+def issue_marker(task_id: str) -> str:
+    return MARKER_TEMPLATE.format(task_id=task_id)
+
+
+def issue_body(task: Task) -> str:
+    lines = [
+        issue_marker(task.task_id),
+        "> Managed from [`docs/ROADMAP.md`](../blob/dev/docs/ROADMAP.md).",
+        "",
+    ]
+    if task.description:
+        lines.extend(["## Description", "", task.description, ""])
+    if task.milestone:
+        lines.append(f"**Roadmap milestone:** `{task.milestone}`")
+    return "\n".join(lines).rstrip() + "\n"
+
+
+def owned_issue_id(body: str | None) -> str | None:
+    match = MARKER_RE.search(body or "")
+    return match.group(1) if match else None
+
+
+def ensure_labels(client: GitHubClient, tasks: list[Task]) -> None:
+    labels = {label["name"] for label in client.paged(f"/repos/{client.repository}/labels")}
+    wanted = {
+        ROADMAP_LABEL: (ROADMAP_LABEL_COLOR, ROADMAP_LABEL_DESCRIPTION),
+        **{task.label: ("ededed", "Roadmap phase") for task in tasks if task.label},
+    }
+    for name, (color, description) in wanted.items():
+        if name not in labels:
+            client.request(
+                "POST",
+                f"/repos/{client.repository}/labels",
+                {"name": name, "color": color, "description": description},
+            )
+            print(f"Created label: {name}")
+
+
+def ensure_milestones(client: GitHubClient, tasks: list[Task]) -> dict[str, int]:
+    milestones = {
+        milestone["title"]: milestone["number"]
+        for milestone in client.paged(f"/repos/{client.repository}/milestones?state=all")
+    }
+    for title in sorted({task.milestone for task in tasks if task.milestone}):
+        if title not in milestones:
+            created = client.request(
+                "POST", f"/repos/{client.repository}/milestones", {"title": title}
+            )
+            milestones[title] = created["number"]
+            print(f"Created milestone: {title}")
+    return milestones
+
+
+def get_owned_issues(client: GitHubClient) -> dict[str, dict]:
+    issues = client.paged(
+        f"/repos/{client.repository}/issues?state=all&labels={urllib.parse.quote(ROADMAP_LABEL)}"
+    )
+    owned: dict[str, dict] = {}
+    for issue in issues:
+        if "pull_request" in issue:
+            continue
+        task_id = owned_issue_id(issue.get("body"))
+        if not task_id:
+            continue
+        if task_id in owned:
+            raise RuntimeError(f"Multiple roadmap issues use roadmap-id {task_id!r}")
+        owned[task_id] = issue
+    return owned
+
+
+def sync_issues(
+    client: GitHubClient, tasks: list[Task], milestones: dict[str, int]
+) -> dict[str, dict]:
+    owned = get_owned_issues(client)
+    synced: dict[str, dict] = {}
 
     for task in tasks:
-        title     = task["title"]
-        done      = task["done"]
-        raw_label = task["label"]
-        raw_ms    = task["milestone"]
+        issue = owned.get(task.task_id)
+        if task.done and not issue:
+            print(f"Completed without managed issue: {task.task_id}")
+            continue
 
-        # Resolve milestone number
-        ms_num = None
-        if raw_ms:
-            if raw_ms not in milestone_cache:
-                ms_num = ensure_milestone(raw_ms)
-                if ms_num:
-                    milestone_cache[raw_ms] = ms_num
-            ms_num = milestone_cache.get(raw_ms)
+        labels = [ROADMAP_LABEL] + ([task.label] if task.label else [])
+        payload = {
+            "title": task.title,
+            "body": issue_body(task),
+            "labels": labels,
+            "milestone": milestones.get(task.milestone) if task.milestone else None,
+        }
 
-        if done:
-            # Close open issue if one exists
-            if title in open_issues:
-                close_issue(open_issues[title], title)
-            else:
-                print(f"  ⏭️  Already closed/absent: {title}")
+        if not issue:
+            issue = client.request("POST", f"/repos/{client.repository}/issues", payload)
+            print(f"Created issue #{issue['number']}: {task.title}")
         else:
-            # Create open issue if it doesn't exist yet
-            if title in open_issues:
-                print(f"  ⏭️  Already open: #{open_issues[title]} — {title}")
-                continue
+            desired_state = "closed" if task.done else "open"
+            payload["state"] = desired_state
+            if task.done:
+                payload["state_reason"] = "completed"
+            issue = client.request(
+                "PATCH", f"/repos/{client.repository}/issues/{issue['number']}", payload
+            )
+            print(f"Updated issue #{issue['number']}: {task.title}")
 
-            # Also skip if already closed (don't reopen)
-            if issue_exists_closed(title):
-                print(f"  ⏭️  Exists closed: {title}")
-                continue
+        if task.done and issue["state"] != "closed":
+            issue = client.request(
+                "PATCH",
+                f"/repos/{client.repository}/issues/{issue['number']}",
+                {"state": "closed", "state_reason": "completed"},
+            )
+        synced[task.task_id] = issue
+    return synced
 
-            # Build labels list
-            labels = [ROADMAP_LABEL]
-            if raw_label:
-                ensure_label(raw_label)
-                labels.append(raw_label)
 
-            # Build issue body
-            body_lines = [
-                "<!-- auto-generated by sync-roadmap workflow -->",
-                f"> 📋 This issue was auto-generated from [`docs/ROADMAP.md`](../blob/dev/docs/ROADMAP.md). "
-                "Edit the file and push to `dev` to update.",
-                "",
-            ]
-            if task["description"]:
-                body_lines += [f"## Description", "", task["description"], ""]
-            if raw_ms:
-                body_lines += [f"**Milestone:** `{raw_ms}`"]
+def get_or_create_project(client: GitHubClient, title: str) -> dict:
+    query = """
+    query($owner: String!, $name: String!) {
+      repository(owner: $owner, name: $name) {
+        id
+        owner {
+          id
+          login
+          ... on User { projectsV2(first: 100) { nodes { id number title url } } }
+          ... on Organization { projectsV2(first: 100) { nodes { id number title url } } }
+        }
+      }
+    }
+    """
+    data = client.graphql(
+        query, {"owner": client.owner, "name": client.repository_name}
+    )["repository"]
+    projects = data["owner"]["projectsV2"]["nodes"]
+    existing = next((project for project in projects if project["title"] == title), None)
+    if existing:
+        return existing
 
-            create_issue(title, "\n".join(body_lines), labels, ms_num)
+    mutation = """
+    mutation($ownerId: ID!, $repositoryId: ID!, $title: String!) {
+      createProjectV2(input: {
+        ownerId: $ownerId,
+        repositoryId: $repositoryId,
+        title: $title
+      }) { projectV2 { id number title url } }
+    }
+    """
+    project = client.graphql(
+        mutation,
+        {"ownerId": data["owner"]["id"], "repositoryId": data["id"], "title": title},
+    )["createProjectV2"]["projectV2"]
+    print(f"Created project: {project['url']}")
+    return project
 
-    print("\n✅ Roadmap sync complete.")
+
+def project_data(client: GitHubClient, project_id: str) -> tuple[dict[str, str], dict]:
+    query = """
+    query($projectId: ID!, $cursor: String) {
+      node(id: $projectId) {
+        ... on ProjectV2 {
+          fields(first: 50) {
+            nodes {
+              ... on ProjectV2SingleSelectField {
+                id
+                name
+                options { id name }
+              }
+            }
+          }
+          items(first: 100, after: $cursor) {
+            nodes { id content { ... on Issue { id } } }
+            pageInfo { hasNextPage endCursor }
+          }
+        }
+      }
+    }
+    """
+    items: dict[str, str] = {}
+    fields: dict = {}
+    cursor = None
+    while True:
+        node = client.graphql(query, {"projectId": project_id, "cursor": cursor})["node"]
+        if not fields:
+            fields = {
+                field["name"]: field
+                for field in node["fields"]["nodes"]
+                if field and field.get("name")
+            }
+        for item in node["items"]["nodes"]:
+            if item.get("content"):
+                items[item["content"]["id"]] = item["id"]
+        page_info = node["items"]["pageInfo"]
+        if not page_info["hasNextPage"]:
+            return items, fields
+        cursor = page_info["endCursor"]
+
+
+def sync_project(
+    client: GitHubClient, tasks: list[Task], issues: dict[str, dict], title: str
+) -> None:
+    project = get_or_create_project(client, title)
+    items, fields = project_data(client, project["id"])
+    status = fields.get("Status")
+    status_options = {
+        option["name"].lower(): option["id"] for option in status.get("options", [])
+    } if status else {}
+
+    add_mutation = """
+    mutation($projectId: ID!, $contentId: ID!) {
+      addProjectV2ItemById(input: {projectId: $projectId, contentId: $contentId}) {
+        item { id }
+      }
+    }
+    """
+    update_mutation = """
+    mutation($projectId: ID!, $itemId: ID!, $fieldId: ID!, $optionId: String!) {
+      updateProjectV2ItemFieldValue(input: {
+        projectId: $projectId,
+        itemId: $itemId,
+        fieldId: $fieldId,
+        value: {singleSelectOptionId: $optionId}
+      }) { projectV2Item { id } }
+    }
+    """
+
+    for task in tasks:
+        issue = issues.get(task.task_id)
+        if not issue:
+            continue
+        issue_node_id = issue["node_id"]
+        item_id = items.get(issue_node_id)
+        if not item_id:
+            item_id = client.graphql(
+                add_mutation,
+                {"projectId": project["id"], "contentId": issue_node_id},
+            )["addProjectV2ItemById"]["item"]["id"]
+            print(f"Added issue #{issue['number']} to project")
+
+        desired = "done" if task.done else "todo"
+        option_id = status_options.get(desired)
+        if status and option_id:
+            client.graphql(
+                update_mutation,
+                {
+                    "projectId": project["id"],
+                    "itemId": item_id,
+                    "fieldId": status["id"],
+                    "optionId": option_id,
+                },
+            )
+
+    print(f"Project synchronized: {project['url']}")
+
+
+def main() -> int:
+    parser = argparse.ArgumentParser()
+    parser.add_argument("--check", action="store_true", help="validate Markdown only")
+    args = parser.parse_args()
+
+    try:
+        tasks = parse_roadmap()
+        print(f"Validated {len(tasks)} roadmap tasks with unique stable IDs")
+        if args.check:
+            return 0
+
+        repository = os.environ.get("GITHUB_REPOSITORY", "")
+        github_token = os.environ.get("GITHUB_TOKEN", "")
+        if not repository or not github_token:
+            raise ValueError("GITHUB_REPOSITORY and GITHUB_TOKEN are required")
+
+        issue_client = GitHubClient(repository, github_token)
+        ensure_labels(issue_client, tasks)
+        milestones = ensure_milestones(issue_client, tasks)
+        issues = sync_issues(issue_client, tasks, milestones)
+
+        project_token = os.environ.get("PROJECT_TOKEN", "").strip()
+        if project_token:
+            project_title = os.environ.get(
+                "ROADMAP_PROJECT_TITLE", "URL Shortener Roadmap"
+            )
+            sync_project(GitHubClient(repository, project_token), tasks, issues, project_title)
+        else:
+            print("PROJECT_TOKEN is not configured; issue sync completed, project sync skipped")
+        return 0
+    except (OSError, ValueError, RuntimeError) as error:
+        print(f"ERROR: {error}", file=sys.stderr)
+        return 1
 
 
 if __name__ == "__main__":
-    main()
+    raise SystemExit(main())
