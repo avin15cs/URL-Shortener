@@ -9,9 +9,9 @@ This repository is a full-stack URL Shortener monorepo. When assisting in this r
 - **Orchestration**: `docker-compose.yml` (PostgreSQL + Backend + Frontend Nginx).
 
 ## Git Branching Rules
-- **Active development branch is `dev`**. Never commit feature work directly to `main` or `release`.
-- `release` is reserved for release candidates and automated tagging.
-- `main` is production-ready code.
+- **Active development branch is `dev`**. Never commit feature work directly to `main`.
+- Promote releases with a pull request from `dev` to `main`.
+- `main` is production-ready code; merges publish containers and create a GitHub Release.
 
 ## Documentation Requirements
 - Whenever adding features or altering endpoints, update `docs/PROJECT_LOG.md` and `docs/ARCHITECTURE.md`.

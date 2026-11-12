@@ -4,7 +4,6 @@ on:
   push:
     branches:
       - main
-      - release
   workflow_dispatch:
 
 permissions:
@@ -82,11 +81,10 @@ jobs:
           cache-to: type=gha,mode=max
 
   # ==========================================
-  # Automatic Release Creation on 'release' branch
+  # Automatic Release Creation on 'main'
   # ==========================================
   create-release:
     name: Create GitHub Release
-    if: github.ref == 'refs/heads/release'
     runs-on: ubuntu-latest
     needs: [publish-images]
     steps:
@@ -101,6 +99,7 @@ jobs:
         uses: softprops/action-gh-release@v2
         with:
           tag_name: ${{ steps.tag.outputs.TAG_NAME }}
+          target_commitish: ${{ github.sha }}
           name: Release ${{ steps.tag.outputs.TAG_NAME }}
           draft: false
           prerelease: false
