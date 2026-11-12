@@ -13,6 +13,16 @@
 
 ---
 
+## Phase 0 -- Identity, Ownership, and Administration [label:security] [milestone:v1.1.0]
+
+- [ ] Integrate the backend as an OAuth 2.0 resource server -- validate JWT issuer, audience, scopes, user subjects, and service identities from the standalone auth server <!-- roadmap-id: oauth2-resource-server -->
+- [ ] Enforce per-user URL ownership -- persist the immutable auth-server `uid` on every managed URL and restrict reads, updates, statistics, and deletion to its owner <!-- roadmap-id: per-user-url-ownership -->
+- [ ] Add authenticated login and user dashboard -- use Authorization Code with PKCE through the backend and show each signed-in user only their own links <!-- roadmap-id: authenticated-user-dashboard -->
+- [ ] Add a URL administration dashboard -- allow users with the audience-specific `URL_ADMIN` role to search and manage links across owners <!-- roadmap-id: url-admin-dashboard -->
+- [ ] Define service-client access rules -- keep client-credentials identities distinct from users and authorize automation through explicit scopes without user impersonation <!-- roadmap-id: service-client-access-rules -->
+
+---
+
 ## Phase 1 -- Core Link Features [label:enhancement] [milestone:v1.1.0]
 
 - [ ] Custom link expiry dates -- allow users to set a TTL (for example, 24h, 7d, or never) per shortened URL <!-- roadmap-id: custom-link-expiry -->
