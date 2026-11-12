@@ -17,9 +17,10 @@ The CI workflow uses read-only repository permissions and cancels superseded run
 same ref. CD runs are serialized per ref so image publication and release creation do not
 overlap.
 
-Recommended GitHub branch protection for both long-lived branches requires pull
-requests, successful CI jobs, resolved conversations, linear history, and disabled force
-pushes/deletions. GitHub requires a paid plan to enforce these rules on a private repository.
+Active GitHub rulesets protect both long-lived branches. They require pull requests,
+successful CI jobs, resolved conversations, and disable force pushes and deletions.
+There are no bypass actors, including administrators. Because this is a solo-maintainer
+repository, the rulesets do not require a separate approving review; CI is the merge gate.
 
 ---
 

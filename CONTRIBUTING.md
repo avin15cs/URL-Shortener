@@ -13,8 +13,8 @@ feature/* ──► dev ──► main (release)
 | Branch | Purpose | Who can merge? |
 |--------|---------|----------------|
 | `feature/*` | Your work | You (via PR → `dev`) |
-| `dev` | Integration / staging | Maintainers only (via approved PR) |
-| `main` | Production release | **Admin only** |
+| `dev` | Integration / staging | Maintainers via PR after CI passes |
+| `main` | Production release | Maintainers via a `dev` → `main` PR |
 
 > **Direct pushes to `dev` and `main` are blocked by branch rulesets.**
 
@@ -51,7 +51,7 @@ Branch naming:
 
 ### 4. After Merge into `dev`
 
-Once your feature is merged into `dev`, it goes through integration testing. When a release is ready, **an admin will promote `dev` → `main`** — you don't need to do anything.
+Once your feature is merged into `dev`, it goes through integration testing. When a release is ready, a maintainer promotes `dev` → `main` through a CI-gated PR — you don't need to do anything.
 
 ---
 
@@ -61,7 +61,7 @@ Once your feature is merged into `dev`, it goes through integration testing. Whe
 |---------|--------------|
 | Push directly to `dev` | Open a PR from `feature/*` → `dev` |
 | Push directly to `main` | Admins handle `dev` → `main` promotions |
-| Merge your own PR without review | Wait for maintainer approval |
+| Merge an external contribution without review | Wait for maintainer review |
 
 ---
 

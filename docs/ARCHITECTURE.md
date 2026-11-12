@@ -109,7 +109,7 @@ When a client hits `GET http://localhost:8080/{shortCode}`:
 
 ## 5. Security & Production Considerations
 
-* **Non-Root Docker execution**: Backend runs under `spring:spring` unprivileged user; Frontend runs under `nginx:alpine`.
+* **Non-Root Docker execution**: Backend runs under the unprivileged `spring:spring` user; the frontend uses the pinned Nginx Alpine slim runtime. The PostgreSQL entrypoint drops privileges through a pinned-source `gosu` build.
 * **CORS Policy**: Configured via `app.cors.allowed-origins` in `application.yml` and injected into `WebConfig`. Supports environment override via `${CORS_ALLOWED_ORIGIN}`.
 * **Reserved Path Routing & Collision Prevention**: Injected via `AppProperties.reservedPaths`. Protects system endpoints (`/actuator/**`, `/swagger-ui/**`, `/v3/api-docs`, `/api/**`, `/favicon.ico`) from being hijacked by custom aliases or intercepted by the `/{shortCode}` wildcard.
 * **Input Validation**: Uses `jakarta.validation` annotations (`@NotBlank`, `@URL`, `@Size`) to sanitize inputs.

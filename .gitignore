@@ -39,6 +39,9 @@ npm-debug.log*
 yarn-debug.log*
 yarn-error.log*
 
+# Local agent handoff notes
+docs/CODEX_HANDOFF.md
+
 # Maven
 .mvn/wrapper/maven-wrapper.jar
 
