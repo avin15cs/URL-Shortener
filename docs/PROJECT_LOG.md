@@ -21,6 +21,7 @@ This document tracks every major engineering milestone, architectural decision, 
 | **11. Local PostgreSQL Docker Hardening** | v1.0.4 | ✅ Completed | Pinned PostgreSQL 15.19/Alpine 3.24, separated the local `postgres-dev` profile, and repaired backend container health checks. |
 | **12. Release Readiness & Promotion Policy** | v1.0.5 | ✅ Completed | Repaired ESLint configuration, enforced frontend lint in CI, added least-privilege CI permissions, and restricted production promotions to `dev` → `main`. |
 | **13. Open Source — Public Repo + Branch Rulesets** | v1.0.6 | ✅ Completed | Repository made public; branch rulesets added to block direct pushes/merges to `dev` and `main`; `CONTRIBUTING.md` and PR template added with contribution flow guidance (`feature/*` → `dev` → `main` by admin). |
+| **14. Roadmap + Auto Issue Sync** | v1.0.7 | ✅ Completed | `docs/ROADMAP.md` added with 4 phases of planned features; `sync-roadmap.yml` workflow auto-creates/closes GitHub Issues from the roadmap on every push to `dev`. |
 
 ---
 
