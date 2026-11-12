@@ -20,7 +20,8 @@ This document tracks every major engineering milestone, architectural decision, 
 | **10. Sqids Identifier Encoding** | v1.0.3 | ✅ Completed | Replaced random tokens with reversible ID-based Sqids and unified aliases in the public-code namespace. |
 | **11. Local PostgreSQL Docker Hardening** | v1.0.4 | ✅ Completed | Pinned PostgreSQL 15.19/Alpine 3.24, separated the local `postgres-dev` profile, and repaired backend container health checks. |
 | **12. Release Readiness & Promotion Policy** | v1.0.5 | ✅ Completed | Repaired ESLint configuration, enforced frontend lint in CI, added least-privilege CI permissions, and restricted production promotions to `dev` → `main`. |
-| **13. Open Source — Public Repo + Branch Rulesets** | v1.0.6 | ✅ Completed | Repository made public; branch rulesets added to block direct pushes/merges to `dev` and `main`; `CONTRIBUTING.md` and PR template added with contribution flow guidance (`feature/*` → `dev` → `main` by admin). |
+| **13. Open Source — Public Repo + Branch Rulesets** | v1.0.6 | ✅ Completed | Repository made public; no-bypass rulesets block direct changes and require CI-gated PRs for `dev` and `main`; GitHub secret scanning, push protection, and Dependabot protections enabled. |
+| **14. Public Repository Security Hardening** | v1.0.7 | ✅ Completed | Removed known npm advisories with exact Vite 7.3.8/plugin-react 5.2.0 upgrades, raised the Node floor to 22.12, and limited local PostgreSQL exposure to loopback. |
 
 ---
 
@@ -48,7 +49,7 @@ This document tracks every major engineering milestone, architectural decision, 
     * `application-prod.yml`: PostgreSQL configuration with connection pooling for production deployments.
 
 ### Phase 2: Frontend Implementation (`frontend/`)
-* **Technology**: React 18, Vite 5, TypeScript, Vanilla CSS (custom design system), Axios, Lucide React icons.
+* **Technology**: React 18, Vite 7.3.8, TypeScript, Vanilla CSS (custom design system), Axios, Lucide React icons.
 * **Key Features**:
   * Glassmorphic modern aesthetic with dark mode gradient styling.
   * Instant URL input with auto-protocol prefixing (`http://` / `https://`).
@@ -60,11 +61,11 @@ This document tracks every major engineering milestone, architectural decision, 
 
 ### Phase 3: Containerization & Local Orchestration
 * **Multi-stage Dockerfile for Backend**:
-  * Stage 1 (`maven:3.9.5-eclipse-temurin-21`): builds production JAR.
-  * Stage 2 (`eclipse-temurin:21-jre-alpine`): lightweight non-root runtime container (~150MB).
+  * Stage 1 (`maven:3.9.16-eclipse-temurin-21-alpine`): builds production JAR.
+  * Stage 2 (`eclipse-temurin:21.0.13_9-jre-alpine-3.24`): lightweight non-root runtime container.
 * **Multi-stage Dockerfile for Frontend**:
-  * Stage 1 (`node:22-alpine`): installs dependencies and builds Vite static output.
-  * Stage 2 (`nginx:alpine`): high-performance web server with custom `nginx.conf` routing reverse-proxy requests to the backend.
+  * Stage 1 (`node:22.23.5-alpine3.24`): installs dependencies and builds Vite static output.
+  * Stage 2 (`nginx:1.30.6-alpine3.24-slim`): high-performance web server with custom `nginx.conf` routing reverse-proxy requests to the backend.
 * **`docker-compose.yml`**:
   * Coordinates `postgres:15.19-alpine3.24`, `backend`, and `frontend` on a shared Docker bridge network with health checks.
 
@@ -104,7 +105,7 @@ This document tracks every major engineering milestone, architectural decision, 
 ### Phase 7: Node.js 22 LTS Security Hardening
 * Upgraded frontend Docker build container from `node:20-alpine` to `node:22-alpine` (Active LTS).
 * Upgraded GitHub Actions CI/CD workflow (`ci.yml`) frontend runner to Node `22`.
-* Added `"engines": { "node": ">=22.0.0" }` to `frontend/package.json` to enforce modern runtime and resolve legacy CVEs.
+* Added `"engines": { "node": ">=22.12.0" }` to `frontend/package.json` to satisfy the patched Vite runtime floor and enforce a modern runtime.
 
 ### Phase 8: Spring Boot 4 H2 Console Modularization Fix
 * **Added `org.springframework.boot:spring-boot-h2console`**: Spring Boot 4 modularized `H2ConsoleAutoConfiguration` out of core autoconfigure into this dedicated starter module.
@@ -133,4 +134,12 @@ This document tracks every major engineering milestone, architectural decision, 
 * Simplified the promotion model to two long-lived branches: feature/fix branches target `dev`, and only `dev` may target `main`.
 * Added serialized CD concurrency per branch to prevent overlapping image publication or release creation.
 * Pinned generated release tags to the triggering `release` commit with `target_commitish: ${{ github.sha }}`, preventing tags from falling back to the older default-branch commit.
-* Defined branch-protection rules for `dev` and `main`; applying them to this private repository requires GitHub Pro or changing the repository visibility, so they remain an account-level follow-up.
+* Made the repository public and activated no-bypass rulesets for `dev` and `main` with required CI status checks and resolved-conversation enforcement.
+
+### Phase 12: Public Repository Security Hardening
+* Scanned the full Git history with Gitleaks before publication; no committed secrets were detected.
+* Enabled GitHub secret scanning, push protection, vulnerability alerts, and Dependabot security updates.
+* Upgraded Vite to `7.3.8` and `@vitejs/plugin-react` to `5.2.0`; `npm audit` reports zero known vulnerabilities.
+* Raised the frontend Node.js requirement to `22.12.0`, matching Vite's supported engine range.
+* Bound the local PostgreSQL host port to `127.0.0.1` so Docker development credentials are not exposed on all host interfaces.
+* Pinned all Docker build/runtime tags and hardened the PostgreSQL image with current Alpine packages plus `gosu` 1.19 rebuilt from immutable commit `6456aaa` using Go 1.27.4.
