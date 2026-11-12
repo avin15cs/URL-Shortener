@@ -1,5 +1,6 @@
 package com.urlshortener.service;
 
+import com.urlshortener.config.AppProperties;
 import com.urlshortener.dto.ShortenUrlRequest;
 import com.urlshortener.dto.UrlResponse;
 import com.urlshortener.exception.UrlAlreadyExistsException;
@@ -8,14 +9,17 @@ import com.urlshortener.model.Url;
 import com.urlshortener.repository.UrlRepository;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
+import org.sqids.Sqids;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
 import java.time.format.DateTimeFormatter;
+import java.util.ArrayList;
 import java.util.List;
-import java.util.Random;
+import java.util.Locale;
+import java.util.UUID;
 import java.util.stream.Collectors;
 
 @Service
@@ -24,28 +28,34 @@ import java.util.stream.Collectors;
 public class UrlService {
 
     private final UrlRepository urlRepository;
+    private final AppProperties appProperties;
+    private final Sqids sqids;
 
     @Value("${app.base-url:http://localhost:8080}")
     private String baseUrl;
 
-    private static final String CHARS = "abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789";
-    private static final int SHORT_CODE_LENGTH = 7;
-    private final Random random = new Random();
+    private static final int MAX_CODE_GENERATION_ATTEMPTS = 10;
+    private static final String PENDING_CODE_PREFIX = "~pending_";
 
     /**
      * Shorten a URL and persist it.
      */
     @Transactional
     public UrlResponse shortenUrl(ShortenUrlRequest request) {
-        // Validate custom alias uniqueness
-        if (request.getCustomAlias() != null && !request.getCustomAlias().isBlank()) {
-            if (urlRepository.existsByCustomAlias(request.getCustomAlias())) {
+        String customAlias = normalizeAlias(request.getCustomAlias());
+
+        // Custom aliases and generated codes share one public namespace.
+        if (customAlias != null) {
+            if (isReserved(customAlias)) {
+                throw new IllegalArgumentException(
+                        "Custom alias '" + customAlias + "' is a reserved keyword");
+            }
+            if (urlRepository.existsByShortCode(customAlias)
+                    || urlRepository.existsByCustomAlias(customAlias)) {
                 throw new UrlAlreadyExistsException(
-                        "Custom alias '" + request.getCustomAlias() + "' is already taken");
+                        "Custom alias '" + customAlias + "' is already taken");
             }
         }
-
-        String shortCode = generateUniqueShortCode();
 
         LocalDateTime expiresAt = null;
         if (request.getExpiresAt() != null && !request.getExpiresAt().isBlank()) {
@@ -54,13 +64,20 @@ public class UrlService {
 
         Url url = Url.builder()
                 .originalUrl(request.getOriginalUrl())
-                .shortCode(shortCode)
-                .customAlias(request.getCustomAlias())
+                .shortCode(customAlias != null ? customAlias : pendingCode())
+                .customAlias(customAlias)
                 .title(request.getTitle())
                 .expiresAt(expiresAt)
                 .build();
 
-        Url saved = urlRepository.save(url);
+        // IDENTITY IDs are assigned by the first flush. The temporary code is never
+        // visible outside this transaction and is replaced with the Sqid immediately.
+        Url saved = urlRepository.saveAndFlush(url);
+        if (customAlias == null) {
+            saved.setShortCode(generateUniqueShortCode(saved.getId()));
+            saved = urlRepository.saveAndFlush(saved);
+        }
+
         log.info("Created short URL: {} -> {}", saved.getShortCode(), saved.getOriginalUrl());
         return mapToResponse(saved);
     }
@@ -92,6 +109,7 @@ public class UrlService {
     @Transactional
     public String resolveShortCode(String code) {
         Url url = urlRepository.findByShortCode(code)
+                // Compatibility fallback for rows created before aliases became the canonical short code.
                 .or(() -> urlRepository.findByCustomAlias(code))
                 .orElseThrow(() -> new UrlNotFoundException("Short URL '" + code + "' not found"));
 
@@ -131,34 +149,52 @@ public class UrlService {
     // Private helpers
     // -------------------------------------------------------------------------
 
-    private String generateUniqueShortCode() {
-        String code;
-        int attempts = 0;
-        do {
-            code = generateShortCode();
-            attempts++;
-            if (attempts > 10) {
-                throw new IllegalStateException("Unable to generate a unique short code after 10 attempts");
+    private String generateUniqueShortCode(Long id) {
+        if (id == null) {
+            throw new IllegalStateException("Cannot generate a short code before the URL has an ID");
+        }
+
+        for (long discriminator = 0; discriminator < MAX_CODE_GENERATION_ATTEMPTS; discriminator++) {
+            List<Long> input = new ArrayList<>();
+            input.add(id);
+            if (discriminator > 0) {
+                input.add(discriminator);
             }
-        } while (urlRepository.existsByShortCode(code));
-        return code;
+
+            String code = sqids.encode(input);
+            if (!isReserved(code)
+                    && !urlRepository.existsByShortCode(code)
+                    && !urlRepository.existsByCustomAlias(code)) {
+                return code;
+            }
+        }
+
+        throw new IllegalStateException(
+                "Unable to generate a unique short code after " + MAX_CODE_GENERATION_ATTEMPTS + " attempts");
     }
 
-    private String generateShortCode() {
-        StringBuilder sb = new StringBuilder(SHORT_CODE_LENGTH);
-        for (int i = 0; i < SHORT_CODE_LENGTH; i++) {
-            sb.append(CHARS.charAt(random.nextInt(CHARS.length())));
+    private String normalizeAlias(String customAlias) {
+        if (customAlias == null || customAlias.isBlank()) {
+            return null;
         }
-        return sb.toString();
+        return customAlias.trim();
+    }
+
+    private boolean isReserved(String code) {
+        return appProperties.getReservedPaths() != null
+                && appProperties.getReservedPaths().contains(code.toLowerCase(Locale.ROOT));
+    }
+
+    private String pendingCode() {
+        return PENDING_CODE_PREFIX + UUID.randomUUID().toString().replace("-", "");
     }
 
     private UrlResponse mapToResponse(Url url) {
-        String effectiveCode = url.getCustomAlias() != null ? url.getCustomAlias() : url.getShortCode();
         return UrlResponse.builder()
                 .id(url.getId())
                 .originalUrl(url.getOriginalUrl())
                 .shortCode(url.getShortCode())
-                .shortUrl(baseUrl + "/" + effectiveCode)
+                .shortUrl(baseUrl + "/" + url.getShortCode())
                 .customAlias(url.getCustomAlias())
                 .title(url.getTitle())
                 .clickCount(url.getClickCount())

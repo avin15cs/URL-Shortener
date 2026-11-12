@@ -9,7 +9,7 @@ spring:
     password: ${DB_PASSWORD:password}
 
   jpa:
-    database-platform: org.hibernate.dialect.PostgreSQLDialect
+    open-in-view: false
     hibernate:
       ddl-auto: validate
     show-sql: false
@@ -18,8 +18,29 @@ spring:
     console:
       enabled: false
 
+# ---- Application Production Overrides ----
 app:
   base-url: ${APP_BASE_URL:https://yourdomain.com}
+  cors:
+    allowed-origins:
+      - ${CORS_ALLOWED_ORIGIN:https://yourdomain.com}
+
+# ---- Actuator (Production Lockdown: Health Only) ----
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health
+  endpoint:
+    health:
+      show-details: never
+
+# ---- SpringDoc (Disable in Production) ----
+springdoc:
+  swagger-ui:
+    enabled: false
+  api-docs:
+    enabled: false
 
 logging:
   level:

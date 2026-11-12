@@ -8,14 +8,15 @@
 
 * **Repository**: `https://github.com/avin15cs/URL-Shortener`
 * **Architecture**: Monorepo with two independent application directories:
-  * **`backend/`**: Spring Boot 3.2.0 REST API (Java 17, Maven, Spring Data JPA).
-    * Database: H2 in-memory (local dev on port 8080) and PostgreSQL 15 (prod profile).
-    * Core Entity: `UrlMapping` (id, originalUrl, shortCode, clickCount, timestamps).
-    * Logic: Base62 7-character hashing, custom alias support, collision handling, atomic redirect click counter.
-  * **`frontend/`**: Single Page Application (React 18, TypeScript, Vite, Vanilla CSS).
+  * **`backend/`**: Spring Boot 4.1.2 REST API (Java 21, Maven, Spring Data JPA).
+    * Database: H2 in-memory (local dev on port 8080 at `/api/h2-console/`) and PostgreSQL 15 (prod profile).
+    * Core Entity: `Url` (id, originalUrl, shortCode, customAlias, title, clickCount, timestamps, isActive).
+    * Logic: Sqids-based identifiers with a 7-character minimum, custom alias support with reserved path validation, collision handling, atomic redirect click counter.
+    * Tooling: SpringDoc OpenAPI 3.1.1 (`/swagger-ui.html`, `/v3/api-docs`), Actuator (`/actuator/**`), `AppProperties` for YAML-configured reserved paths and CORS.
+  * **`frontend/`**: Single Page Application (React 18, TypeScript, Vite, Node 22 LTS, Vanilla CSS).
     * Glassmorphic modern dark-mode aesthetic with Lucide React icons and Toast alerts.
     * Features: URL shortening, custom alias toggle, 1-click clipboard copy, QR code display, analytics list.
-  * **`docker-compose.yml`**: Orchestrates `postgres:15-alpine`, `backend`, and `frontend` (Nginx).
+  * **`docker-compose.yml`**: Orchestrates the exactly pinned `postgres:15.19-alpine3.24`, `backend`, and `frontend` (Nginx).
 
 ---
 
@@ -58,4 +59,4 @@ Whenever you make architectural changes, add new features, or alter configuratio
 * **Run Full Docker Stack**: `docker compose up --build` (Port 80, 8080, 5432)
 * **Run Tests**:
   * Backend: `cd backend && mvn test`
-  * Frontend: `cd frontend && npm run build`
+  * Frontend: `cd frontend && npm run lint && npm run build`
