@@ -68,15 +68,23 @@ Once your feature is merged into `dev`, it goes through integration testing. Whe
 ## 🛠️ Local Dev Setup
 
 ```bash
-# Backend (Java 21 + Maven)
-cd backend && mvn spring-boot:run        # http://localhost:8080
+# One-time locked dependency installation from the repository root
+npm ci
 
-# Frontend (Node 22 + Vite)
-cd frontend && npm install && npm run dev # http://localhost:5173
+# Backend + frontend with labeled output and coordinated shutdown
+npm run dev                              # http://localhost:5173 + :8080
 
-# Full stack (Docker)
+# Run either service independently when needed
+npm run dev:backend                      # http://localhost:8080
+npm run dev:frontend                     # http://localhost:5173
+
+# Production-like full stack with PostgreSQL (do not run beside npm run dev)
 docker compose up --build                # http://localhost:80
 ```
+
+On Windows PowerShell systems that block `npm.ps1`, use `npm.cmd` in place of
+`npm`. Stop the Docker Compose stack before native development because both use
+backend port `8080`.
 
 API docs: http://localhost:8080/swagger-ui.html
 

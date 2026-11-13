@@ -16,6 +16,49 @@ Before starting, ensure you have the following installed on your machine:
 
 ## 2. Running Locally for Development
 
+### Recommended: Start Backend and Frontend Together
+
+For the implementation design, validation record, and troubleshooting details, see
+[Local Development Workflow](features/LOCAL_DEVELOPMENT_WORKFLOW.md).
+
+From the repository root, install the locked development tooling and frontend
+dependencies:
+
+```bash
+npm ci
+```
+
+The root install runs `npm ci --prefix frontend` automatically, so both dependency
+sets remain reproducible while the frontend keeps its independent package boundary
+for CI and Docker builds.
+
+Start both development servers with one command:
+
+```bash
+npm run dev
+```
+
+This starts the Spring Boot backend with its default H2 profile on port `8080` and
+the Vite frontend with hot reload on port `5173`. Output is labeled `backend` and
+`frontend`; if either process fails, the other is stopped. Press `Ctrl+C` once to
+stop the complete local stack.
+
+Do not run this command at the same time as the Docker Compose stack because both
+backends bind port `8080`. Run `docker compose down` first when switching from the
+containerized stack.
+
+On Windows PowerShell systems where script execution policy blocks `npm.ps1`, use:
+
+```powershell
+npm.cmd ci
+npm.cmd run dev
+```
+
+The execution policy is a machine/user setting and is not changed by this project.
+
+To start only one service from the repository root, use `npm run dev:backend` or
+`npm run dev:frontend`.
+
 ### A. Backend Development (Spring Boot)
 
 The default profile uses an in-memory **H2 database**, so no external database is needed for local dev:
@@ -46,7 +89,7 @@ npm run dev
 ```
 
 * **Vite Dev Server**: `http://localhost:5173`
-* Vite automatically proxies `/api` and shortcode requests to the backend at `http://localhost:8080`.
+* Vite automatically proxies `/api` requests to the backend at `http://localhost:8080`.
 
 ---
 

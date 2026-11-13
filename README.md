@@ -22,6 +22,7 @@ Detailed technical documentation is available in the [`docs/`](docs/) directory:
 - 🔄 [**CI/CD Pipeline & Branching Guide**](docs/CI_CD_PIPELINE.md) — GitHub Actions workflows, GHCR Docker container releases, and branch rules.
 - 💻 [**Developer & Contribution Guide**](docs/DEVELOPER_GUIDE.md) — Step-by-step local dev setup, H2 console, Docker compose, and testing.
 - 📜 [**Project History & Engineering Log**](docs/PROJECT_LOG.md) — Audit log of everything created, configured, and implemented.
+- 🧩 [**Feature Documentation**](docs/features/) — Implementation details, usage, validation, and troubleshooting for developed solutions.
 
 ---
 
@@ -47,7 +48,10 @@ URL-Shortener/
 │   ├── ARCHITECTURE.md
 │   ├── CI_CD_PIPELINE.md
 │   ├── DEVELOPER_GUIDE.md
-│   └── PROJECT_LOG.md
+│   ├── PROJECT_LOG.md
+│   └── features/               # Per-solution implementation documentation
+├── package.json                # Root local-development command orchestration
+├── package-lock.json           # Locked root development-tool dependencies
 ├── docker-compose.yml          # Multi-container orchestration (DB + API + UI)
 ├── .gitattributes
 ├── .gitignore
@@ -58,7 +62,32 @@ URL-Shortener/
 
 ## ⚡ Quick Start
 
-### 1. Run Everything with Docker Compose (Recommended)
+### 1. Run Locally for Development (Recommended)
+
+Install the locked root tooling and frontend dependencies once:
+
+```bash
+npm ci
+```
+
+Then start Spring Boot and Vite together from the repository root:
+
+```bash
+npm run dev
+```
+
+* **Frontend with hot reload**: [http://localhost:5173](http://localhost:5173)
+* **Backend API**: [http://localhost:8080](http://localhost:8080)
+* **Database**: Disposable in-memory H2 database
+* Press `Ctrl+C` once to stop both processes.
+* Stop any running Docker Compose stack first because both workflows use port `8080`.
+
+On Windows PowerShell systems that block `npm.ps1`, use `npm.cmd ci` and
+`npm.cmd run dev`, or adjust the PowerShell execution policy for your user account.
+
+---
+
+### 2. Run Everything with Docker Compose (Production-Like)
 
 ```bash
 docker compose up --build
@@ -70,7 +99,7 @@ docker compose up --build
 
 ---
 
-### 2. Run Locally for Development
+### 3. Run Services Individually for Development
 
 #### Backend:
 ```bash
@@ -89,7 +118,7 @@ mvn spring-boot:run
 #### Frontend:
 ```bash
 cd frontend
-npm install
+npm ci
 npm run dev
 ```
 * Vite dev server live at [http://localhost:5173](http://localhost:5173).
