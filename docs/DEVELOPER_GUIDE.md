@@ -11,12 +11,35 @@ Before starting, ensure you have the following installed on your machine:
 * **Maven**: 3.8+ (`mvn -version`)
 * **Node.js**: 22.12+ (`node -v`)
 * **Docker & Docker Compose**: (Optional, for containerized run)
+* A running clone of the sibling **`auth-server`** with its backend on port `9000` and
+  login/admin UI on port `5173`, configured according to that repository's guide.
 
 ---
 
 ## 2. Running Locally for Development
 
-### Recommended: Start Backend and Frontend Together
+### A. Start the authorization server
+
+From the sibling `auth-server` repository, copy its `.env.example`, generate a private
+development JWK Set, and configure either Google login or the local-profile administrator.
+The URL Shortener client must use audience `url-shortener-api`, callback
+`http://localhost:8080/login/oauth2/code/auth-server`, and post-logout URI
+`http://localhost:5174/`.
+
+```powershell
+cd ..\auth-server
+npm ci
+npm --prefix admin-ui ci
+npm run dev
+```
+
+Set the same strong `URL_SHORTENER_CLIENT_SECRET` in both repositories. The latest auth
+server supports Google and administrator-invited local accounts; development-only local
+login additionally requires `LOCAL_LOGIN_ENABLED=true` under its `local` profile. If the
+client already exists with different metadata, update or rotate it through the auth-server
+administration UI because bootstrap changes do not rewrite persisted secrets.
+
+### B. Start Backend and Frontend Together
 
 For the implementation design, validation record, and troubleshooting details, see
 [Local Development Workflow](features/LOCAL_DEVELOPMENT_WORKFLOW.md).
@@ -40,7 +63,7 @@ npm run dev
 
 This idempotently starts the shared `postgres-db` container, provisions the isolated
 `urlshortener` database and role, applies Liquibase changesets, starts Spring Boot with
-the `postgres-dev` profile on port `8080`, and starts Vite with hot reload on port `5173`.
+the `postgres-dev` profile on port `8080`, and starts Vite with hot reload on port `5174`.
 Output is labeled `backend` and `frontend`; if either process fails, the other is stopped.
 Press `Ctrl+C` once to stop the application processes. PostgreSQL remains available for
 Auth Server or the next URL Shortener run.
@@ -61,13 +84,18 @@ The execution policy is a machine/user setting and is not changed by this projec
 To start only one service from the repository root, use `npm run dev:backend` or
 `npm run dev:frontend`.
 
-### A. Backend Development (Spring Boot)
+### C. Backend Development (Spring Boot)
 
 The root backend command uses the shared PostgreSQL database:
 
 ```bash
 npm run dev:backend
 ```
+
+Set `URL_SHORTENER_CLIENT_SECRET` in the ignored root `.env` file to exactly match the
+auth-server configuration. Browse to the frontend and use **Sign in**; provider selection
+and local credential handling remain inside the auth-server, and the SPA never receives
+an access or refresh token.
 
 * **API Base**: `http://localhost:8080`
 * **Swagger UI Docs**: `http://localhost:8080/swagger-ui.html`
@@ -77,7 +105,7 @@ Liquibase owns the PostgreSQL schema and Hibernate validates it. To run the back
 the disposable H2 default profile, execute `mvn spring-boot:run` directly from `backend/`.
 That isolated mode retains the H2 console at `http://localhost:8080/api/h2-console/`.
 
-### B. Frontend Development (React + Vite)
+### D. Frontend Development (React + Vite)
 
 In a separate terminal:
 
@@ -87,7 +115,7 @@ npm install
 npm run dev
 ```
 
-* **Vite Dev Server**: `http://localhost:5173`
+* **Vite Dev Server**: `http://localhost:5174`
 * Vite automatically proxies `/api` requests to the backend at `http://localhost:8080`.
 
 ---
@@ -97,8 +125,14 @@ npm run dev
 To test the complete production-like stack locally with a real PostgreSQL database:
 
 ```bash
+copy .env.example .env
+# Set URL_SHORTENER_CLIENT_SECRET to the auth-server client's value.
 npm run compose:up
 ```
+
+Start the sibling auth-server on host port `9000` first. Compose keeps the public issuer
+as `http://localhost:9000` while using `host.docker.internal` for backend-to-auth-server
+token, UserInfo, and JWKS calls. The host-gateway mapping is included for Linux Docker.
 
 Services started:
 * **PostgreSQL 15.19** (`postgres-db`, shared with Auth Server): `127.0.0.1:5432` (host loopback only)
@@ -139,6 +173,26 @@ Download the PostgreSQL driver when the IDE prompts, then use **Test Connection*
 credentials are intentionally local-only and must not be reused in a shared or production
 environment.
 
+### OAuth and BFF environment variables
+
+| Variable | Purpose | Default |
+| :--- | :--- | :--- |
+| `AUTH_ISSUER` | Exact JWT issuer validated in `iss`. | `http://localhost:9000` |
+| `AUTH_AUDIENCE` | Required access-token audience. | `url-shortener-api` |
+| `AUTH_AUTHORIZATION_URI` | Browser-facing authorization endpoint. | `http://localhost:9000/oauth2/authorize` |
+| `AUTH_TOKEN_URI` | Backend-reachable token endpoint. | `http://localhost:9000/oauth2/token` |
+| `AUTH_JWK_SET_URI` | Backend-reachable signing-key endpoint. | `http://localhost:9000/oauth2/jwks` |
+| `AUTH_USER_INFO_URI` | Backend-reachable OIDC UserInfo endpoint. | `http://localhost:9000/userinfo` |
+| `URL_SHORTENER_CLIENT_ID` | Confidential OAuth client ID. | `url-shortener` |
+| `URL_SHORTENER_CLIENT_SECRET` | Confidential OAuth client secret. | Development placeholder only |
+| `URL_SHORTENER_REDIRECT_URI` | Exact registered login callback. | `http://localhost:8080/login/oauth2/code/auth-server` |
+| `FRONTEND_URL` | Login/logout success redirect. | `http://localhost:5174` |
+| `COOKIE_SECURE` | Send the BFF session cookie only over HTTPS. | `false` locally; must be `true` in production |
+
+Assign `URL_ADMIN` for audience `url-shortener-api` through the auth-server management
+API to enable the cross-owner list and search UI. Normal users and service clients remain
+restricted to their own records.
+
 To stop the URL Shortener application containers while retaining the shared database:
 ```bash
 docker compose stop backend frontend
@@ -165,6 +219,10 @@ Never use `docker compose down -v` for ordinary development. The
 ---
 
 ## 5. Running Tests
+
+For the complete cross-repository acceptance flow, including two-user ownership,
+`URL_ADMIN`, service-client scopes, CSRF, and Docker, follow
+[`Authentication and URL Ownership`](features/AUTHENTICATION_AND_URL_OWNERSHIP.md).
 
 ### Backend Unit Tests:
 ```bash

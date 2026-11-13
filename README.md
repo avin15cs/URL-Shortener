@@ -12,6 +12,11 @@
 
 A production-ready full-stack URL Shortener application built as a clean monorepo featuring a **Spring Boot 4** REST API backend and a **React 18 + Vite** frontend.
 
+URL management is secured by the sibling [`auth-server`](https://github.com/avin15cs/auth-server) using
+Authorization Code with PKCE for browser sessions and JWT bearer tokens for service
+clients. Normal users see their own links; users with `URL_ADMIN` can search and manage
+all links.
+
 ---
 
 ## 📚 Complete Documentation
@@ -23,6 +28,7 @@ Detailed technical documentation is available in the [`docs/`](docs/) directory:
 - 💻 [**Developer & Contribution Guide**](docs/DEVELOPER_GUIDE.md) — Step-by-step local dev setup, H2 console, Docker compose, and testing.
 - 📜 [**Project History & Engineering Log**](docs/PROJECT_LOG.md) — Audit log of everything created, configured, and implemented.
 - 🧩 [**Feature Documentation**](docs/features/) — Implementation details, usage, validation, and troubleshooting for developed solutions.
+- 🔐 [**Authentication and URL Ownership**](docs/features/AUTHENTICATION_AND_URL_OWNERSHIP.md) — Login, JWT validation, ownership, roles, service clients, and security testing.
 
 ---
 
@@ -66,7 +72,13 @@ URL-Shortener/
 
 Install the locked root tooling and frontend dependencies once:
 
+Start the sibling auth-server first. Its backend runs on port `9000` and its login/admin
+UI runs on port `5173`. Configure its URL Shortener client with callback
+`http://localhost:8080/login/oauth2/code/auth-server`, post-logout URI
+`http://localhost:5174/`, and the same client secret used in this repository.
+
 ```bash
+cp .env.example .env
 npm ci
 ```
 
@@ -76,7 +88,7 @@ Then start Spring Boot and Vite together from the repository root:
 npm run dev
 ```
 
-* **Frontend with hot reload**: [http://localhost:5173](http://localhost:5173)
+* **Frontend with hot reload**: [http://localhost:5174](http://localhost:5174)
 * **Backend API**: [http://localhost:8080](http://localhost:8080)
 * **Database**: Persistent `urlshortener` database in the shared local `postgres-db` container
 * Press `Ctrl+C` once to stop both processes.
@@ -123,7 +135,7 @@ cd frontend
 npm ci
 npm run dev
 ```
-* Vite dev server live at [http://localhost:5173](http://localhost:5173).
+* Vite dev server live at [http://localhost:5174](http://localhost:5174).
 
 ---
 
@@ -131,8 +143,9 @@ npm run dev
 
 | Method | Endpoint | Description | Status Code |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/urls/shorten` | Create shortened URL (auto or custom alias) | `201 Created` |
-| `GET` | `/api/urls` | Retrieve all shortened URLs | `200 OK` |
+| `GET` | `/api/auth/session` | Current BFF session identity and CSRF token | `200 OK` |
+| `POST` | `/api/urls/shorten` | Create an owned shortened URL (`urls.write`) | `201 Created` |
+| `GET` | `/api/urls` | Retrieve subject-owned URLs, or all for `URL_ADMIN` (`urls.read`) | `200 OK` |
 | `GET` | `/api/urls/{id}` | Get URL details and metadata | `200 OK` |
 | `DELETE`| `/api/urls/{id}` | Soft-delete a shortened URL | `200 OK`|
 | `GET` | `/api/urls/{id}/stats` | Get click count and statistics | `200 OK` |

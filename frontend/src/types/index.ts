@@ -24,3 +24,15 @@ export interface ApiResponse<T> {
   message: string;
   data: T;
 }
+
+export interface AuthSession {
+  authenticated: boolean;
+  subjectType: 'user' | 'client' | null;
+  name: string | null;
+  email: string | null;
+  picture: string | null;
+  roles: string[];
+  admin: boolean;
+  csrfHeader: string;
+  csrfToken: string;
+}

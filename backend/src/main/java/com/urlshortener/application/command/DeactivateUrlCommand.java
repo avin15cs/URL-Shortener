@@ -1,4 +1,6 @@
 package com.urlshortener.application.command;
 
-public record DeactivateUrlCommand(Long id) {
+import com.urlshortener.security.ActorContext;
+
+public record DeactivateUrlCommand(Long id, ActorContext actor) {
 }

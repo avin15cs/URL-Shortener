@@ -39,8 +39,13 @@ class PostgreSqlMigrationIntegrationTest {
         Integer urlTables = jdbc.queryForObject(
                 "SELECT COUNT(*) FROM information_schema.tables WHERE table_name = 'urls'",
                 Integer.class);
+        Integer ownershipColumns = jdbc.queryForObject(
+                "SELECT COUNT(*) FROM information_schema.columns "
+                        + "WHERE table_name = 'urls' AND column_name IN ('owner_uid', 'owner_client_id')",
+                Integer.class);
 
-        assertThat(changesets).isOne();
+        assertThat(changesets).isEqualTo(2);
         assertThat(urlTables).isOne();
+        assertThat(ownershipColumns).isEqualTo(2);
     }
 }

@@ -30,7 +30,8 @@ npm run dev
 
 | Service | Address | Development behavior |
 | :--- | :--- | :--- |
-| Frontend | `http://localhost:5173` | Vite hot reload and `/api` proxying |
+| Auth Server UI | `http://localhost:5173` | Login/provider selection and administration from the sibling repository |
+| Frontend | `http://localhost:5174` | Vite hot reload and auth/API proxying |
 | Backend | `http://localhost:8080` | Spring Boot DevTools with the `postgres-dev` profile |
 | PostgreSQL | `127.0.0.1:5432` | Shared `postgres-db` container with an isolated `urlshortener` database |
 
@@ -49,6 +50,10 @@ npm run dev:frontend
 creates or reuses `postgres-db`, waits for health, and idempotently creates the URL Shortener
 database and role. Auth Server declares the identical PostgreSQL service and provisions its own
 `authserver` database, so either repository may be started first.
+
+Start the sibling Auth Server before this workflow. Configure its URL Shortener client
+callback for backend port `8080`, post-logout URI for frontend port `5174`, audience
+`url-shortener-api`, and the same confidential-client secret used by this repository.
 
 ## Native Development Versus Docker Compose
 

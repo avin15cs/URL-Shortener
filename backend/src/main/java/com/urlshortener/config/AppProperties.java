@@ -34,7 +34,10 @@ public class AppProperties {
             "favicon.ico",
             "error",
             "api",
-            "h2-console"
+            "h2-console",
+            "oauth2",
+            "login",
+            "logout"
     ));
 
     /**
@@ -46,6 +49,7 @@ public class AppProperties {
     @Setter
     public static class Cors {
         private List<String> allowedOrigins = new ArrayList<>(List.of(
+                "http://localhost:5174",
                 "http://localhost:5173",
                 "http://localhost:3000"
         ));

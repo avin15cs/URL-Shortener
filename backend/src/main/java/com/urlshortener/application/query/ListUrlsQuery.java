@@ -1,4 +1,6 @@
 package com.urlshortener.application.query;
 
-public record ListUrlsQuery() {
+import com.urlshortener.security.ActorContext;
+
+public record ListUrlsQuery(ActorContext actor) {
 }
