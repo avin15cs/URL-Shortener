@@ -11,19 +11,43 @@ Before starting, ensure you have the following installed on your machine:
 * **Maven**: 3.8+ (`mvn -version`)
 * **Node.js**: 22.12+ (`node -v`)
 * **Docker & Docker Compose**: (Optional, for containerized run)
+* A running clone of the sibling **`auth-server`** on port `9000`, configured with a
+  Google OAuth client, signing JWK, and the URL Shortener client secret.
 
 ---
 
 ## 2. Running Locally for Development
 
-### A. Backend Development (Spring Boot)
+### A. Start the authorization server
+
+From the sibling `auth-server` repository, set a strong shared client secret and use its
+local profile. The URL Shortener client defaults already use audience
+`url-shortener-api` and callback `http://localhost:8080/login/oauth2/code/auth-server`.
+
+```powershell
+$env:URL_SHORTENER_CLIENT_SECRET = "a-strong-local-secret"
+docker compose up -d postgres
+.\mvnw.cmd spring-boot:run -Dspring-boot.run.profiles=local
+```
+
+The auth-server also needs its documented `GOOGLE_CLIENT_ID`, `GOOGLE_CLIENT_SECRET`,
+`AUTH_JWK_SET`, and database settings. If the OAuth client was already bootstrapped with
+a different secret, rotate it through the auth-server management API or recreate only
+the disposable local auth database.
+
+### B. Backend Development (Spring Boot)
 
 The default profile uses an in-memory **H2 database**, so no external database is needed for local dev:
 
 ```bash
 cd backend
+set URL_SHORTENER_CLIENT_SECRET=a-strong-local-secret
 mvn spring-boot:run
 ```
+
+In PowerShell use `$env:URL_SHORTENER_CLIENT_SECRET = "a-strong-local-secret"`. The value
+must exactly match the auth-server configuration. Browse to the frontend and use **Sign
+in with Google**; the SPA never receives an access or refresh token.
 
 * **API Base**: `http://localhost:8080`
 * **Swagger UI Docs**: `http://localhost:8080/swagger-ui.html`
@@ -35,7 +59,7 @@ mvn spring-boot:run
   * Password: *(empty)*
 * Hibernate creates and drops the disposable H2 schema from the JPA mappings.
 
-### B. Frontend Development (React + Vite)
+### C. Frontend Development (React + Vite)
 
 In a separate terminal:
 
@@ -55,8 +79,14 @@ npm run dev
 To test the complete production-like stack locally with a real PostgreSQL database:
 
 ```bash
+copy .env.example .env
+# Set URL_SHORTENER_CLIENT_SECRET in .env to the auth-server's value.
 docker compose up --build
 ```
+
+Start the sibling auth-server on host port `9000` first. Compose keeps the public issuer
+as `http://localhost:9000` while using `host.docker.internal` for backend-to-auth-server
+token, UserInfo, and JWKS calls. The host-gateway mapping is included for Linux Docker.
 
 Services started:
 * **PostgreSQL 15.19** (hardened local image based on `postgres:15.19-alpine3.24`): `127.0.0.1:5432` (host loopback only)
@@ -64,8 +94,8 @@ Services started:
 * **Frontend**: `localhost:80` (or `http://localhost`)
 
 Docker Compose activates the `postgres-dev` Spring profile. Hibernate uses `ddl-auto: update`
-for this local development database. The `prod` profile remains on `ddl-auto: validate` and
-must be paired with Liquibase before the first persistent deployment.
+for this disposable local development database. The `prod` profile enables Liquibase,
+applies `db/changelog/db.changelog-master.sql`, and then uses `ddl-auto: validate`.
 
 The PostgreSQL base image is pinned to an exact database and Alpine version. The local
 Dockerfile applies current Alpine 3.24 security updates and rebuilds the entrypoint's `gosu`
@@ -98,6 +128,26 @@ Download the PostgreSQL driver when the IDE prompts, then use **Test Connection*
 credentials are intentionally local-only and must not be reused in a shared or production
 environment.
 
+### OAuth and BFF environment variables
+
+| Variable | Purpose | Default |
+| :--- | :--- | :--- |
+| `AUTH_ISSUER` | Exact JWT issuer validated in `iss`. | `http://localhost:9000` |
+| `AUTH_AUDIENCE` | Required access-token audience. | `url-shortener-api` |
+| `AUTH_AUTHORIZATION_URI` | Browser-facing authorization endpoint. | `http://localhost:9000/oauth2/authorize` |
+| `AUTH_TOKEN_URI` | Backend-reachable token endpoint. | `http://localhost:9000/oauth2/token` |
+| `AUTH_JWK_SET_URI` | Backend-reachable signing-key endpoint. | `http://localhost:9000/oauth2/jwks` |
+| `AUTH_USER_INFO_URI` | Backend-reachable OIDC UserInfo endpoint. | `http://localhost:9000/userinfo` |
+| `URL_SHORTENER_CLIENT_ID` | Confidential OAuth client ID. | `url-shortener` |
+| `URL_SHORTENER_CLIENT_SECRET` | Confidential OAuth client secret. | Development placeholder only |
+| `URL_SHORTENER_REDIRECT_URI` | Exact registered login callback. | `http://localhost:8080/login/oauth2/code/auth-server` |
+| `FRONTEND_URL` | Login/logout success redirect. | `http://localhost:5173` |
+| `COOKIE_SECURE` | Send the BFF session cookie only over HTTPS. | `false` locally; must be `true` in production |
+
+Assign `URL_ADMIN` for audience `url-shortener-api` through the auth-server management
+API to enable the cross-owner list and search UI. Normal users and service clients remain
+restricted to their own records.
+
 To stop all containers and retain data volume:
 ```bash
 docker compose down
@@ -111,6 +161,10 @@ docker compose down -v
 ---
 
 ## 4. Running Tests
+
+For the complete cross-repository acceptance flow, including two-user ownership,
+`URL_ADMIN`, service-client scopes, CSRF, and Docker, follow
+[`AUTH_INTEGRATION_TESTING.md`](AUTH_INTEGRATION_TESTING.md).
 
 ### Backend Unit Tests:
 ```bash

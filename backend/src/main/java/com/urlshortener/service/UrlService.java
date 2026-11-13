@@ -7,11 +7,13 @@ import com.urlshortener.exception.UrlAlreadyExistsException;
 import com.urlshortener.exception.UrlNotFoundException;
 import com.urlshortener.model.Url;
 import com.urlshortener.repository.UrlRepository;
+import com.urlshortener.security.ActorContext;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.sqids.Sqids;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.stereotype.Service;
+import org.springframework.security.access.AccessDeniedException;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.LocalDateTime;
@@ -41,7 +43,8 @@ public class UrlService {
      * Shorten a URL and persist it.
      */
     @Transactional
-    public UrlResponse shortenUrl(ShortenUrlRequest request) {
+    public UrlResponse shortenUrl(ShortenUrlRequest request, ActorContext actor) {
+        actor.requireScope("urls.write");
         String customAlias = normalizeAlias(request.getCustomAlias());
 
         // Custom aliases and generated codes share one public namespace.
@@ -68,6 +71,8 @@ public class UrlService {
                 .customAlias(customAlias)
                 .title(request.getTitle())
                 .expiresAt(expiresAt)
+                .ownerUid(actor.subjectType() == ActorContext.SubjectType.USER ? actor.userId() : null)
+                .ownerClientId(actor.subjectType() == ActorContext.SubjectType.CLIENT ? actor.clientId() : null)
                 .build();
 
         // IDENTITY IDs are assigned by the first flush. The temporary code is never
@@ -86,8 +91,17 @@ public class UrlService {
      * Get all active, non-expired URLs.
      */
     @Transactional(readOnly = true)
-    public List<UrlResponse> getAllUrls() {
-        return urlRepository.findAllActiveAndNonExpired()
+    public List<UrlResponse> getAllUrls(ActorContext actor) {
+        actor.requireScope("urls.read");
+        List<Url> urls;
+        if (actor.isAdmin()) {
+            urls = urlRepository.findAllActiveAndNonExpired();
+        } else if (actor.subjectType() == ActorContext.SubjectType.USER) {
+            urls = urlRepository.findAllActiveAndNonExpiredByOwnerUid(actor.userId());
+        } else {
+            urls = urlRepository.findAllActiveAndNonExpiredByOwnerClientId(actor.clientId());
+        }
+        return urls
                 .stream()
                 .map(this::mapToResponse)
                 .collect(Collectors.toList());
@@ -97,9 +111,11 @@ public class UrlService {
      * Get a single URL by its database ID.
      */
     @Transactional(readOnly = true)
-    public UrlResponse getUrlById(Long id) {
+    public UrlResponse getUrlById(Long id, ActorContext actor) {
+        actor.requireScope("urls.read");
         Url url = urlRepository.findById(id)
                 .orElseThrow(() -> new UrlNotFoundException("URL with ID " + id + " not found"));
+        requireOwnerOrAdmin(url, actor);
         return mapToResponse(url);
     }
 
@@ -129,9 +145,11 @@ public class UrlService {
      * Delete (soft delete) a URL by its ID.
      */
     @Transactional
-    public void deleteUrl(Long id) {
+    public void deleteUrl(Long id, ActorContext actor) {
+        actor.requireScope("urls.write");
         Url url = urlRepository.findById(id)
                 .orElseThrow(() -> new UrlNotFoundException("URL with ID " + id + " not found"));
+        requireOwnerOrAdmin(url, actor);
         url.setIsActive(false);
         urlRepository.save(url);
         log.info("Deactivated URL with ID: {}", id);
@@ -141,8 +159,8 @@ public class UrlService {
      * Get click statistics for a URL.
      */
     @Transactional(readOnly = true)
-    public UrlResponse getUrlStats(Long id) {
-        return getUrlById(id);
+    public UrlResponse getUrlStats(Long id, ActorContext actor) {
+        return getUrlById(id, actor);
     }
 
     // -------------------------------------------------------------------------
@@ -187,6 +205,18 @@ public class UrlService {
 
     private String pendingCode() {
         return PENDING_CODE_PREFIX + UUID.randomUUID().toString().replace("-", "");
+    }
+
+    private void requireOwnerOrAdmin(Url url, ActorContext actor) {
+        if (actor.isAdmin()) {
+            return;
+        }
+        boolean owner = actor.subjectType() == ActorContext.SubjectType.USER
+                ? actor.userId().equals(url.getOwnerUid())
+                : actor.clientId().equals(url.getOwnerClientId());
+        if (!owner) {
+            throw new AccessDeniedException("This URL belongs to another subject");
+        }
     }
 
     private UrlResponse mapToResponse(Url url) {

@@ -12,6 +12,11 @@
 
 A production-ready full-stack URL Shortener application built as a clean monorepo featuring a **Spring Boot 4** REST API backend and a **React 18 + Vite** frontend.
 
+URL management is secured by the sibling [`auth-server`](https://github.com/avin15cs/auth-server) using
+Authorization Code with PKCE for browser sessions and JWT bearer tokens for service
+clients. Normal users see their own links; users with `URL_ADMIN` can search and manage
+all links.
+
 ---
 
 ## 📚 Complete Documentation
@@ -22,6 +27,7 @@ Detailed technical documentation is available in the [`docs/`](docs/) directory:
 - 🔄 [**CI/CD Pipeline & Branching Guide**](docs/CI_CD_PIPELINE.md) — GitHub Actions workflows, GHCR Docker container releases, and branch rules.
 - 💻 [**Developer & Contribution Guide**](docs/DEVELOPER_GUIDE.md) — Step-by-step local dev setup, H2 console, Docker compose, and testing.
 - 📜 [**Project History & Engineering Log**](docs/PROJECT_LOG.md) — Audit log of everything created, configured, and implemented.
+- 🧪 [**Auth Integration Test Guide**](docs/AUTH_INTEGRATION_TESTING.md) — Manual login, ownership, role, service-client, CSRF, and Docker checks.
 
 ---
 
@@ -45,6 +51,7 @@ URL-Shortener/
 │   └── Dockerfile
 ├── docs/                       # Project documentation suite
 │   ├── ARCHITECTURE.md
+│   ├── AUTH_INTEGRATION_TESTING.md
 │   ├── CI_CD_PIPELINE.md
 │   ├── DEVELOPER_GUIDE.md
 │   └── PROJECT_LOG.md
@@ -60,7 +67,11 @@ URL-Shortener/
 
 ### 1. Run Everything with Docker Compose (Recommended)
 
+Start the sibling auth-server on port `9000` first, then copy `.env.example` to `.env`
+and set the same `URL_SHORTENER_CLIENT_SECRET` in both projects.
+
 ```bash
+cp .env.example .env
 docker compose up --build
 ```
 
@@ -100,8 +111,9 @@ npm run dev
 
 | Method | Endpoint | Description | Status Code |
 | :--- | :--- | :--- | :--- |
-| `POST` | `/api/urls/shorten` | Create shortened URL (auto or custom alias) | `201 Created` |
-| `GET` | `/api/urls` | Retrieve all shortened URLs | `200 OK` |
+| `GET` | `/api/auth/session` | Current BFF session identity and CSRF token | `200 OK` |
+| `POST` | `/api/urls/shorten` | Create an owned shortened URL (`urls.write`) | `201 Created` |
+| `GET` | `/api/urls` | Retrieve subject-owned URLs, or all for `URL_ADMIN` (`urls.read`) | `200 OK` |
 | `GET` | `/api/urls/{id}` | Get URL details and metadata | `200 OK` |
 | `DELETE`| `/api/urls/{id}` | Soft-delete a shortened URL | `200 OK`|
 | `GET` | `/api/urls/{id}/stats` | Get click count and statistics | `200 OK` |

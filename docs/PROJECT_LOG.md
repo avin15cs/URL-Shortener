@@ -23,6 +23,7 @@ This document tracks every major engineering milestone, architectural decision, 
 | **13. Open Source — Public Repo + Branch Rulesets** | v1.0.6 | ✅ Completed | Repository made public; no-bypass rulesets block direct changes and require CI-gated PRs for `dev` and `main`; GitHub secret scanning, push protection, and Dependabot protections enabled. |
 | **14. Public Repository Security Hardening** | v1.0.7 | ✅ Completed | Removed known npm advisories with exact Vite 7.3.8/plugin-react 5.2.0 upgrades, raised the Node floor to 22.12, and limited local PostgreSQL exposure to loopback. |
 | **15. Roadmap Issue & Project Sync** | v1.0.8 | ✅ Completed | `docs/ROADMAP.md` declaratively manages owned GitHub issues, labels, milestones, and optional GitHub Project membership through a tested Actions workflow. |
+| **16. OAuth Identity, Ownership & Administration** | v1.1.0 | ✅ Completed | Auth-server BFF login, JWT resource server, audience/scopes, per-subject ownership, `URL_ADMIN` data access, service-client isolation, and CSRF-protected React session UX. |
 
 ---
 
@@ -150,3 +151,17 @@ This document tracks every major engineering milestone, architectural decision, 
 * Added stable task IDs and an explicit ownership marker so the automation never claims or closes unrelated issues based on title alone.
 * Added parser tests and roadmap validation to the existing protected backend CI check.
 * Added optional GitHub Project v2 synchronization using a separately configured `PROJECT_TOKEN`; issue synchronization continues when that secret is absent.
+
+### Phase 14: OAuth Identity, Ownership, and Administration
+* Integrated the sibling auth-server using confidential Authorization Code with PKCE;
+  access and refresh tokens remain in the backend session.
+* Added JWT resource-server validation for issuer, audience, expiry, `subject_type`,
+  `uid`/`client_id`, `urls.read`, `urls.write`, and audience-specific roles.
+* Added `owner_uid` and `owner_client_id` to URL persistence. Users and service clients
+  see only their own records, while `URL_ADMIN` users can search and manage all records.
+* Enabled Liquibase in production with an idempotent PostgreSQL baseline and ownership
+  migration before Hibernate schema validation.
+* Kept anonymous redirects public while requiring authentication for management and
+  analytics endpoints. Legacy unowned rows are visible only to administrators.
+* Added `/api/auth/session`, CSRF-protected SPA mutations, login/logout UI, container
+  host-gateway auth routing, identity tests, and authorization boundary tests.

@@ -4,6 +4,8 @@ import io.swagger.v3.oas.models.OpenAPI;
 import io.swagger.v3.oas.models.info.Contact;
 import io.swagger.v3.oas.models.info.Info;
 import io.swagger.v3.oas.models.info.License;
+import io.swagger.v3.oas.models.Components;
+import io.swagger.v3.oas.models.security.SecurityScheme;
 import io.swagger.v3.oas.models.servers.Server;
 import org.springframework.beans.factory.annotation.Value;
 import org.springframework.context.annotation.Bean;
@@ -31,13 +33,20 @@ public class OpenApiConfig {
                                 - Click analytics & statistics
                                 - URL expiry support
                                 """)
-                        .version("v1.0.0")
+                        .version("v1.1.0")
                         .contact(new Contact()
                                 .name("URL Shortener")
                                 .url("https://github.com/avin15cs/URL-Shortener"))
                         .license(new License()
                                 .name("MIT License")
                                 .url("https://opensource.org/licenses/MIT")))
+                .components(new Components().addSecuritySchemes(
+                        "bearerAuth",
+                        new SecurityScheme()
+                                .type(SecurityScheme.Type.HTTP)
+                                .scheme("bearer")
+                                .bearerFormat("JWT")
+                                .description("Auth-server access token with audience url-shortener-api")))
                 .servers(List.of(
                         new Server().url(baseUrl).description("Local Development Server"),
                         new Server().url("https://yourdomain.com").description("Production Server")

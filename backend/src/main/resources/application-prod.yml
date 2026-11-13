@@ -2,6 +2,25 @@
 # Production Configuration (PostgreSQL)
 # ============================================================
 spring:
+  security:
+    oauth2:
+      client:
+        provider:
+          auth-server:
+            authorization-uri: ${AUTH_AUTHORIZATION_URI}
+            token-uri: ${AUTH_TOKEN_URI}
+            jwk-set-uri: ${AUTH_JWK_SET_URI}
+            user-info-uri: ${AUTH_USER_INFO_URI}
+        registration:
+          auth-server:
+            client-secret: ${URL_SHORTENER_CLIENT_SECRET}
+            redirect-uri: ${URL_SHORTENER_REDIRECT_URI}
+      resourceserver:
+        jwt:
+          issuer-uri: ${AUTH_ISSUER}
+          jwk-set-uri: ${AUTH_JWK_SET_URI}
+          audiences: ${AUTH_AUDIENCE:url-shortener-api}
+
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:urlshortener}
     driver-class-name: org.postgresql.Driver
@@ -14,13 +33,24 @@ spring:
       ddl-auto: validate
     show-sql: false
 
+  liquibase:
+    enabled: true
+    change-log: classpath:db/changelog/db.changelog-master.sql
+
   h2:
     console:
       enabled: false
 
+server:
+  servlet:
+    session:
+      cookie:
+        secure: ${COOKIE_SECURE:true}
+
 # ---- Application Production Overrides ----
 app:
   base-url: ${APP_BASE_URL:https://yourdomain.com}
+  frontend-url: ${FRONTEND_URL:https://yourdomain.com}
   cors:
     allowed-origins:
       - ${CORS_ALLOWED_ORIGIN:https://yourdomain.com}

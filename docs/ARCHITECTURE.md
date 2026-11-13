@@ -6,6 +6,9 @@ The **URL Shortener** application is designed as a distributed, containerized mo
 * **Presentation Tier**: React SPA (Single Page Application) with Vite & TypeScript.
 * **Application / API Tier**: Spring Boot 4 RESTful microservice with Spring Data JPA.
 * **Persistence Tier**: In-memory H2 (Local development) or PostgreSQL 15.19 (Docker; image pinned to Alpine 3.24).
+* **Identity Tier**: The sibling `auth-server` is the OAuth 2.0 Authorization Server and
+  OpenID Connect Provider. The backend is both a confidential OAuth client/BFF for the
+  React application and a JWT resource server for service clients.
 
 ```
                  ┌────────────────────────────────┐
@@ -50,7 +53,9 @@ CREATE TABLE urls (
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP WITHOUT TIME ZONE,
-    is_active BOOLEAN DEFAULT TRUE NOT NULL
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    owner_uid UUID,
+    owner_client_id VARCHAR(100)
 );
 
 CREATE INDEX idx_urls_short_code ON urls(short_code);
@@ -58,8 +63,9 @@ CREATE INDEX idx_urls_custom_alias ON urls(custom_alias);
 ```
 
 During development, Hibernate creates the disposable H2 schema and updates the local
-Docker PostgreSQL schema from the JPA mappings. Before the first persistent or shared
-deployment, Liquibase will become the schema owner and Hibernate will only validate it.
+Docker PostgreSQL schema from the JPA mappings. In production, Liquibase owns the
+PostgreSQL schema and applies the idempotent URL baseline/ownership changelog before
+Hibernate validates the mappings.
 
 ### Entity Fields (`Url.java`)
 | Column | Type | Description |
@@ -74,6 +80,8 @@ deployment, Liquibase will become the schema owner and Hibernate will only valid
 | `updated_at` | `TIMESTAMP` | Timestamp of last modification. |
 | `expires_at` | `TIMESTAMP` | Optional expiration date/time. |
 | `is_active` | `BOOLEAN` | Soft-delete and active status flag. |
+| `owner_uid` | `UUID` | Immutable auth-server `uid` for a human-owned link. |
+| `owner_client_id` | `VARCHAR(100)` | OAuth client ID for a machine-owned link. Mutually exclusive with `owner_uid`. |
 
 ---
 
@@ -108,6 +116,32 @@ When a client hits `GET http://localhost:8080/{shortCode}`:
 ---
 
 ## 5. Security & Production Considerations
+
+### Authentication and authorization
+
+The React browser starts Authorization Code login through
+`/oauth2/authorization/auth-server`. The backend uses PKCE as a confidential client,
+keeps access and rotated refresh tokens server-side, and exposes only its HttpOnly
+session cookie plus a CSRF token to the SPA. `GET /api/auth/session` returns the current
+display identity, audience-scoped roles, and CSRF token; it never returns OAuth tokens.
+
+The same backend accepts bearer JWTs for automation. JWT validation checks the auth-server
+signature, exact issuer, expiry, and the `url-shortener-api` audience. `urls.read` gates
+reads and `urls.write` gates mutations. Human tokens must have `subject_type=user` and a
+valid UUID `uid`; machine tokens must have `subject_type=client` and `client_id`, and are
+rejected if they contain human roles.
+
+Data visibility is resolved before mapping entities to API responses:
+
+| Identity | Visible/manageable URLs |
+| :--- | :--- |
+| User | URLs whose `owner_uid` matches the token `uid`. |
+| User with `URL_ADMIN` | All URLs, including legacy unowned rows. |
+| Service client | URLs whose `owner_client_id` matches its `client_id`; it cannot impersonate a user. |
+
+Public `GET /{shortCode}` redirects remain anonymous. All URL management and analytics
+endpoints require authentication. Existing rows without either owner field are intentionally
+admin-only instead of being assigned to an arbitrary user.
 
 * **Non-Root Docker execution**: Backend runs under the unprivileged `spring:spring` user; the frontend uses the pinned Nginx Alpine slim runtime. The PostgreSQL entrypoint drops privileges through a pinned-source `gosu` build.
 * **CORS Policy**: Configured via `app.cors.allowed-origins` in `application.yml` and injected into `WebConfig`. Supports environment override via `${CORS_ALLOWED_ORIGIN}`.

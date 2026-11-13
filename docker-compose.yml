@@ -41,6 +41,19 @@ services:
       DB_USER: postgres
       DB_PASSWORD: password
       APP_BASE_URL: http://localhost:8080
+      FRONTEND_URL: http://localhost
+      AUTH_ISSUER: http://localhost:9000
+      AUTH_AUTHORIZATION_URI: http://localhost:9000/oauth2/authorize
+      AUTH_TOKEN_URI: http://host.docker.internal:9000/oauth2/token
+      AUTH_JWK_SET_URI: http://host.docker.internal:9000/oauth2/jwks
+      AUTH_USER_INFO_URI: http://host.docker.internal:9000/userinfo
+      AUTH_AUDIENCE: url-shortener-api
+      URL_SHORTENER_CLIENT_ID: url-shortener
+      URL_SHORTENER_CLIENT_SECRET: ${URL_SHORTENER_CLIENT_SECRET:-local-development-only}
+      URL_SHORTENER_REDIRECT_URI: http://localhost:8080/login/oauth2/code/auth-server
+      COOKIE_SECURE: "false"
+    extra_hosts:
+      - "host.docker.internal:host-gateway"
     ports:
       - "8080:8080"
     healthcheck:

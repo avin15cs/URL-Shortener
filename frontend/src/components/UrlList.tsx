@@ -1,9 +1,10 @@
-import React from 'react';
+import React, { useMemo, useState } from 'react';
 import toast from 'react-hot-toast';
 import {
   Link2,
   RefreshCw,
   Globe,
+  Search,
 } from 'lucide-react';
 import UrlCard from './UrlCard';
 import type { UrlResponse } from '../types';
@@ -12,6 +13,7 @@ interface UrlListProps {
   urls: UrlResponse[];
   loading: boolean;
   error: string | null;
+  isAdmin: boolean;
   onDelete: (id: number) => Promise<void>;
   onRefresh: () => Promise<void>;
 }
@@ -31,9 +33,21 @@ const UrlList: React.FC<UrlListProps> = ({
   urls,
   loading,
   error,
+  isAdmin,
   onDelete,
   onRefresh,
 }) => {
+  const [query, setQuery] = useState('');
+  const visibleUrls = useMemo(() => {
+    const normalized = query.trim().toLowerCase();
+    if (!normalized) return urls;
+    return urls.filter((url) =>
+      [url.title, url.originalUrl, url.shortCode, url.customAlias]
+        .filter(Boolean)
+        .some((value) => value!.toLowerCase().includes(normalized))
+    );
+  }, [query, urls]);
+
   const handleDelete = async (id: number) => {
     try {
       await onDelete(id);
@@ -48,23 +62,36 @@ const UrlList: React.FC<UrlListProps> = ({
       <div className="section-header">
         <h2 className="section-title">
           <Link2 size={20} />
-          Your Links
+          {isAdmin ? 'All Links' : 'Your Links'}
           {urls.length > 0 && (
             <span className="section-count" aria-label={`${urls.length} links`}>
               {urls.length}
             </span>
           )}
         </h2>
-        <button
-          id="refresh-urls-btn"
-          className="btn-secondary"
-          onClick={onRefresh}
-          disabled={loading}
-          aria-label="Refresh URL list"
-        >
-          <RefreshCw size={14} className={loading ? 'spin-slow' : ''} />
-          Refresh
-        </button>
+        <div className="list-actions">
+          {isAdmin && (
+            <label className="admin-search">
+              <Search size={14} />
+              <input
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder="Search all links"
+                aria-label="Search all links"
+              />
+            </label>
+          )}
+          <button
+            id="refresh-urls-btn"
+            className="btn-secondary"
+            onClick={onRefresh}
+            disabled={loading}
+            aria-label="Refresh URL list"
+          >
+            <RefreshCw size={14} className={loading ? 'spin-slow' : ''} />
+            Refresh
+          </button>
+        </div>
       </div>
 
       {error && (
@@ -79,19 +106,19 @@ const UrlList: React.FC<UrlListProps> = ({
             <SkeletonCard key={i} />
           ))}
         </div>
-      ) : urls.length === 0 ? (
+      ) : visibleUrls.length === 0 ? (
         <div className="empty-state" role="status">
           <div className="empty-state-icon">
             <Globe size={64} opacity={0.3} />
           </div>
           <p className="empty-state-title">No links yet</p>
           <p className="empty-state-subtitle">
-            Shorten your first URL above and it will appear here with click tracking.
+            {query ? 'No links match your search.' : 'Shorten your first URL above and it will appear here with click tracking.'}
           </p>
         </div>
       ) : (
         <div className="url-list" role="list">
-          {urls.map((url) => (
+          {visibleUrls.map((url) => (
             <UrlCard key={url.id} url={url} onDelete={handleDelete} />
           ))}
         </div>

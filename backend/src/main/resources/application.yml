@@ -5,6 +5,32 @@ spring:
   application:
     name: url-shortener
 
+  # ---- OAuth 2.0 Client and Resource Server ----
+  security:
+    oauth2:
+      client:
+        provider:
+          auth-server:
+            authorization-uri: ${AUTH_AUTHORIZATION_URI:http://localhost:9000/oauth2/authorize}
+            token-uri: ${AUTH_TOKEN_URI:http://localhost:9000/oauth2/token}
+            jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:9000/oauth2/jwks}
+            user-info-uri: ${AUTH_USER_INFO_URI:http://localhost:9000/userinfo}
+            user-name-attribute: sub
+        registration:
+          auth-server:
+            provider: auth-server
+            client-id: ${URL_SHORTENER_CLIENT_ID:url-shortener}
+            client-secret: ${URL_SHORTENER_CLIENT_SECRET:local-development-only}
+            client-authentication-method: client_secret_basic
+            authorization-grant-type: authorization_code
+            redirect-uri: ${URL_SHORTENER_REDIRECT_URI:http://localhost:8080/login/oauth2/code/auth-server}
+            scope: openid,profile,email,urls.read,urls.write
+      resourceserver:
+        jwt:
+          issuer-uri: ${AUTH_ISSUER:http://localhost:9000}
+          jwk-set-uri: ${AUTH_JWK_SET_URI:http://localhost:9000/oauth2/jwks}
+          audiences: ${AUTH_AUDIENCE:url-shortener-api}
+
   # ---- DataSource (H2 in-memory for development) ----
   datasource:
     url: jdbc:h2:mem:urlshortenerdb;DB_CLOSE_DELAY=-1;DB_CLOSE_ON_EXIT=FALSE
@@ -22,6 +48,9 @@ spring:
       hibernate:
         format_sql: true
 
+  liquibase:
+    enabled: false
+
   # ---- H2 Console (development only) ----
   # Path is under /api/ to avoid conflict with the /{shortCode} redirect wildcard.
   # Access at: http://localhost:8080/api/h2-console/
@@ -35,10 +64,18 @@ spring:
 # ---- Server ----
 server:
   port: 8080
+  servlet:
+    session:
+      cookie:
+        http-only: true
+        same-site: lax
+        secure: ${COOKIE_SECURE:false}
+      timeout: 30m
 
 # ---- Application Custom Properties ----
 app:
   base-url: http://localhost:8080
+  frontend-url: ${FRONTEND_URL:http://localhost:5173}
   reserved-paths:
     - actuator
     - swagger-ui
