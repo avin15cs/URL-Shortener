@@ -23,6 +23,7 @@ This document tracks every major engineering milestone, architectural decision, 
 | **13. Open Source — Public Repo + Branch Rulesets** | v1.0.6 | ✅ Completed | Repository made public; no-bypass rulesets block direct changes and require CI-gated PRs for `dev` and `main`; GitHub secret scanning, push protection, and Dependabot protections enabled. |
 | **14. Public Repository Security Hardening** | v1.0.7 | ✅ Completed | Removed known npm advisories with exact Vite 7.3.8/plugin-react 5.2.0 upgrades, raised the Node floor to 22.12, and limited local PostgreSQL exposure to loopback. |
 | **15. Roadmap Issue & Project Sync** | v1.0.8 | ✅ Completed | `docs/ROADMAP.md` declaratively manages owned GitHub issues, labels, milestones, and optional GitHub Project membership through a tested Actions workflow. |
+| **16. Local Development Workflow** | v1.0.9 | ✅ Completed | Added a locked root npm orchestrator that installs frontend dependencies and starts Spring Boot plus Vite with one command. |
 
 ---
 
@@ -150,3 +151,21 @@ This document tracks every major engineering milestone, architectural decision, 
 * Added stable task IDs and an explicit ownership marker so the automation never claims or closes unrelated issues based on title alone.
 * Added parser tests and roadmap validation to the existing protected backend CI check.
 * Added optional GitHub Project v2 synchronization using a separately configured `PROJECT_TOKEN`; issue synchronization continues when that secret is absent.
+
+### Phase 14: Local Development Workflow
+* Added a private root `package.json` with `npm run dev`, `dev:backend`, and
+  `dev:frontend` commands for consistent repository-root workflows.
+* Added `concurrently` with a committed root lockfile to label backend/frontend
+  output and stop the companion process when either development server fails.
+* Made root `npm ci` install the frontend's locked dependencies while preserving
+  the independent frontend lockfile used by CI and Docker builds.
+* Documented the native H2/Vite workflow separately from the production-like
+  Docker Compose/PostgreSQL workflow, including their shared backend port.
+* Added indexed implementation documentation under `docs/features/` and established
+  one canonical document per full-fledged end-to-end feature, avoiding fragmented
+  documents for individual tickets or incremental changes.
+* Backfilled canonical feature documents for shortening and redirects, link management
+  and click analytics, API documentation and observability, the containerized stack,
+  CI/CD releases, roadmap synchronization, and the local development workflow.
+* Strengthened repository agent instructions so documentation review and updates
+  are required for every implementation in both new and existing chats.

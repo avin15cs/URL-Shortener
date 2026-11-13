@@ -42,19 +42,40 @@ Always respect the 2-branch convention:
 
 ---
 
-## 4. Documentation Standards
+## 4. Documentation Standards (Definition of Done)
 
-Whenever you make architectural changes, add new features, or alter configurations:
-1. Update `docs/PROJECT_LOG.md` to log the new milestone/changes.
-2. Update `docs/ARCHITECTURE.md` if data models, endpoints, or algorithms change.
-3. Update `docs/DEVELOPER_GUIDE.md` if setup steps or environment variables change.
+Documentation is part of every implementation, regardless of whether work starts in a
+new chat or an existing one. Before declaring any code, configuration, tooling,
+workflow, or developer-experience change complete, every agent must review the
+documentation impact and update the repository documentation in the same change.
+
+1. Always update `docs/PROJECT_LOG.md` with the completed change.
+2. Update `docs/ARCHITECTURE.md` when data models, endpoints, algorithms, components,
+   or runtime interactions change.
+3. Update `docs/DEVELOPER_GUIDE.md` when commands, setup steps, prerequisites,
+   environment variables, or local workflows change.
+4. Update user-facing entry points such as `README.md` and `CONTRIBUTING.md` when their
+   instructions or examples are affected.
+5. Use `docs/features/README.md` as the feature-documentation index. Each full-fledged
+   end-to-end feature must have exactly one canonical document under `docs/features/`.
+   Update that document whenever the feature changes. Do not create separate documents
+   for its individual tickets, endpoints, components, fixes, or incremental changes.
+   Create a new document and index entry only for a genuinely distinct end-to-end
+   feature or substantial maintained developer workflow.
+6. Review any other relevant document in `docs/` and keep it synchronized. If no
+   additional document needs a change, state that explicitly in the final handoff.
+
+Implementation and its required documentation updates are one unit of work; do not
+defer documentation to a later chat or follow-up task.
 
 ---
 
 ## 5. Quick Commands Reference
 
-* **Run Backend Locally**: `cd backend && mvn spring-boot:run` (Port 8080)
-* **Run Frontend Locally**: `cd frontend && npm install && npm run dev` (Port 5173)
+* **Install Local Dependencies**: `npm ci` (run once from the repository root)
+* **Run Backend + Frontend Locally**: `npm run dev` (Ports 8080 and 5173)
+* **Run Backend Locally**: `npm run dev:backend` (Port 8080)
+* **Run Frontend Locally**: `npm run dev:frontend` (Port 5173)
 * **Run Full Docker Stack**: `docker compose up --build` (Port 80, 8080, 5432)
 * **Run Tests**:
   * Backend: `cd backend && mvn test`

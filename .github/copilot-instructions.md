@@ -14,5 +14,12 @@ This repository is a full-stack URL Shortener monorepo. When assisting in this r
 - `main` is production-ready code; merges publish containers and create a GitHub Release.
 
 ## Documentation Requirements
-- Whenever adding features or altering endpoints, update `docs/PROJECT_LOG.md` and `docs/ARCHITECTURE.md`.
-- Reference `docs/DEVELOPER_GUIDE.md` for local environment instructions.
+- Documentation is part of the definition of done for every implementation, in new and existing chats alike.
+- Always update `docs/PROJECT_LOG.md` when code, configuration, tooling, workflows, or developer experience changes.
+- Update `docs/ARCHITECTURE.md` for data model, endpoint, algorithm, component, or runtime-interaction changes.
+- Update `docs/DEVELOPER_GUIDE.md` for command, prerequisite, setup, environment-variable, or local-workflow changes.
+- Keep affected entry points such as `README.md` and `CONTRIBUTING.md` synchronized in the same change.
+- Consult `docs/features/README.md` before documenting implementation work.
+- Maintain exactly one canonical `docs/features/` document per full-fledged end-to-end feature; update it for later tickets, fixes, endpoints, components, and incremental changes belonging to that feature.
+- Create and index a new feature document only for a genuinely distinct end-to-end capability or substantial maintained developer workflow.
+- Do not defer required documentation to a later chat or follow-up task.
