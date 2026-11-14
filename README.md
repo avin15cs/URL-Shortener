@@ -78,7 +78,7 @@ npm run dev
 
 * **Frontend with hot reload**: [http://localhost:5173](http://localhost:5173)
 * **Backend API**: [http://localhost:8080](http://localhost:8080)
-* **Database**: Disposable in-memory H2 database
+* **Database**: Persistent `urlshortener` database in the shared local `postgres-db` container
 * Press `Ctrl+C` once to stop both processes.
 * Stop any running Docker Compose stack first because both workflows use port `8080`.
 
@@ -90,12 +90,16 @@ On Windows PowerShell systems that block `npm.ps1`, use `npm.cmd ci` and
 ### 2. Run Everything with Docker Compose (Production-Like)
 
 ```bash
-docker compose up --build
+npm run compose:up
 ```
 
 * **Frontend**: [http://localhost:80](http://localhost:80)
 * **Backend API**: [http://localhost:8080](http://localhost:8080)
 * **PostgreSQL 15.19 Database**: `localhost:5432`
+
+Auth Server uses the same local `postgres-db` container with a separate `authserver`
+database. Starting either repository first creates the shared container and only that
+service's database. Liquibase applies pending URL Shortener schema changes on startup.
 
 ---
 
@@ -103,17 +107,15 @@ docker compose up --build
 
 #### Backend:
 ```bash
-cd backend
-mvn spring-boot:run
+npm run dev:backend
 ```
-* Runs with in-memory H2 database at [http://localhost:8080](http://localhost:8080).
+* Ensures `postgres-db`, activates `postgres-dev`, and runs at [http://localhost:8080](http://localhost:8080).
 * **Swagger UI Documentation**: [http://localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html)
 * **OpenAPI 3.1 Spec**: [http://localhost:8080/v3/api-docs](http://localhost:8080/v3/api-docs)
 * **Actuator Health Check**: [http://localhost:8080/actuator/health](http://localhost:8080/actuator/health)
-* **H2 Database Console**: [http://localhost:8080/api/h2-console/](http://localhost:8080/api/h2-console/)
-  * JDBC URL: `jdbc:h2:mem:urlshortenerdb`
-  * Username: `sa`
-  * Password: *(empty)*
+
+For an isolated disposable H2 run, execute `mvn spring-boot:run` directly from `backend/`
+without the `postgres-dev` profile.
 
 #### Frontend:
 ```bash

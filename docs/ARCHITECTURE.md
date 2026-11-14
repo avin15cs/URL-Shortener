@@ -5,7 +5,7 @@
 The **URL Shortener** application is designed as a distributed, containerized monorepo split into two primary layers:
 * **Presentation Tier**: React SPA (Single Page Application) with Vite & TypeScript.
 * **Application / API Tier**: Spring Boot 4 RESTful microservice with Spring Data JPA.
-* **Persistence Tier**: In-memory H2 (Local development) or PostgreSQL 15.19 (Docker; image pinned to Alpine 3.24).
+* **Persistence Tier**: PostgreSQL 15.19 with Liquibase for normal local and deployed runs; in-memory H2 remains available for isolated default-profile development and tests.
 
 ```
                  ┌────────────────────────────────┐
@@ -57,9 +57,14 @@ CREATE INDEX idx_urls_short_code ON urls(short_code);
 CREATE INDEX idx_urls_custom_alias ON urls(custom_alias);
 ```
 
-During development, Hibernate creates the disposable H2 schema and updates the local
-Docker PostgreSQL schema from the JPA mappings. Before the first persistent or shared
-deployment, Liquibase will become the schema owner and Hibernate will only validate it.
+Liquibase owns PostgreSQL schema evolution and Hibernate validates the resulting model.
+The initial changeset creates the schema on a new database or marks itself applied when
+adopting the legacy Hibernate-created `urls` table. H2 remains disposable and is generated
+from JPA mappings only when the default profile is started directly.
+
+Local Auth Server and URL Shortener processes share one container named `postgres-db`, while
+retaining separate databases, roles, and Liquibase histories. Production preserves the same
+database-per-service boundary with independently configured PostgreSQL endpoints.
 
 ### Entity Fields (`Url.java`)
 | Column | Type | Description |
@@ -109,7 +114,7 @@ When a client hits `GET http://localhost:8080/{shortCode}`:
 
 ## 5. Security & Production Considerations
 
-* **Non-Root Docker execution**: Backend runs under the unprivileged `spring:spring` user; the frontend uses the pinned Nginx Alpine slim runtime. The PostgreSQL entrypoint drops privileges through a pinned-source `gosu` build.
+* **Non-Root Docker execution**: Backend runs under the unprivileged `spring:spring` user; the frontend uses the pinned Nginx Alpine slim runtime. Local PostgreSQL uses the pinned official PostgreSQL image and binds only to host loopback.
 * **CORS Policy**: Configured via `app.cors.allowed-origins` in `application.yml` and injected into `WebConfig`. Supports environment override via `${CORS_ALLOWED_ORIGIN}`.
 * **Reserved Path Routing & Collision Prevention**: Injected via `AppProperties.reservedPaths`. Protects system endpoints (`/actuator/**`, `/swagger-ui/**`, `/v3/api-docs`, `/api/**`, `/favicon.ico`) from being hijacked by custom aliases or intercepted by the `/{shortCode}` wildcard.
 * **Input Validation**: Uses `jakarta.validation` annotations (`@NotBlank`, `@URL`, `@Size`) to sanitize inputs.

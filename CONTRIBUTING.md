@@ -78,13 +78,13 @@ npm run dev                              # http://localhost:5173 + :8080
 npm run dev:backend                      # http://localhost:8080
 npm run dev:frontend                     # http://localhost:5173
 
-# Production-like full stack with PostgreSQL (do not run beside npm run dev)
-docker compose up --build                # http://localhost:80
+# Production-like full stack with the shared PostgreSQL (do not run beside npm run dev)
+npm run compose:up                       # http://localhost:80
 ```
 
 On Windows PowerShell systems that block `npm.ps1`, use `npm.cmd` in place of
-`npm`. Stop the Docker Compose stack before native development because both use
-backend port `8080`.
+`npm`. Both workflows reuse `postgres-db`, but stop the Compose application containers
+before native development because both backends use port `8080`.
 
 API docs: http://localhost:8080/swagger-ui.html
 

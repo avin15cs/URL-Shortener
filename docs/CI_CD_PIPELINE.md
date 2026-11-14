@@ -60,7 +60,7 @@ Runs on:
 2. **`backend-ci`**:
    - Environment: `ubuntu-latest`
    - JDK 21 (Eclipse Temurin) with Maven caching.
-   - Runs tests: `mvn clean test -B`
+   - Runs tests: `mvn clean test -B`, including Liquibase migrations against PostgreSQL Testcontainers.
    - Packages JAR: `mvn package -DskipTests -B`
    - Saves build artifact (`backend-jar`).
 3. **`docker-check`**:
@@ -99,14 +99,14 @@ built-in `GITHUB_TOKEN`.
 
 ## 3. How to Deploy
 
-### Option A: Using Docker Compose on a Cloud VPS (AWS / DigitalOcean / Linode)
+### Option A: Container deployment on a Cloud VPS (AWS / DigitalOcean / Linode)
 
-Run on your server:
-```bash
-git clone https://github.com/avin15cs/URL-Shortener.git
-cd URL-Shortener
-docker compose up -d --build
-```
+Deploy the published backend and frontend images with a production-specific Compose or
+orchestration manifest. The repository `docker-compose.yml` is intentionally for local
+development: it uses the shared `postgres-db` container, local-only credentials, and the
+`postgres-dev` profile. Production must instead set `SPRING_PROFILES_ACTIVE=prod`, inject
+database credentials through secrets, and point the backend at URL Shortener's dedicated
+PostgreSQL instance.
 
 ### Option B: Deploying GHCR Images directly
 ```bash

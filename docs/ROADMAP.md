@@ -68,6 +68,8 @@
 - [x] Custom alias support with reserved path validation <!-- roadmap-id: custom-aliases -->
 - [x] Atomic click counter on redirects <!-- roadmap-id: atomic-click-counter -->
 - [x] Docker Compose stack with PostgreSQL 15 <!-- roadmap-id: docker-compose-postgres -->
+- [x] Shared local PostgreSQL bootstrap with database-per-service isolation <!-- roadmap-id: shared-local-postgres -->
+- [x] Liquibase-owned PostgreSQL schema migrations <!-- roadmap-id: liquibase-schema-migrations -->
 - [x] CI/CD with GitHub Actions <!-- roadmap-id: github-actions-cicd -->
 - [x] SpringDoc OpenAPI at `/swagger-ui.html` <!-- roadmap-id: springdoc-openapi -->
 - [x] Branch rulesets protecting `dev` and `main` <!-- roadmap-id: branch-rulesets -->

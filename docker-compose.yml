@@ -1,27 +1,45 @@
+name: avinash-local
+
 services:
   # ---- PostgreSQL Database ----
   postgres:
-    build:
-      context: ./postgres
-      dockerfile: Dockerfile
-    image: url-shortener-postgres:15.19-alpine3.24
-    container_name: urlshortener-db
+    image: postgres:15.19-alpine3.24
+    container_name: postgres-db
     restart: unless-stopped
     environment:
-      POSTGRES_DB: urlshortener
+      POSTGRES_DB: postgres
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: password
     ports:
-      # Keep the development database reachable from local IDEs without exposing it
-      # on every host network interface.
       - "127.0.0.1:5432:5432"
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - local-postgres-data:/var/lib/postgresql/data
+    networks:
+      - local-database
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U postgres"]
-      interval: 10s
-      timeout: 5s
-      retries: 5
+      test: ["CMD-SHELL", "pg_isready -U postgres -d postgres"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  urlshortener-database-init:
+    image: postgres:15.19-alpine3.24
+    depends_on:
+      postgres:
+        condition: service_healthy
+    environment:
+      PGPASSWORD: password
+    volumes:
+      - ./postgres/init-urlshortener.sql:/scripts/init-urlshortener.sql:ro
+    networks:
+      - local-database
+    command:
+      - psql
+      - --host=postgres
+      - --username=postgres
+      - --dbname=postgres
+      - --set=ON_ERROR_STOP=1
+      - --file=/scripts/init-urlshortener.sql
 
   # ---- Spring Boot Backend ----
   backend:
@@ -33,14 +51,19 @@ services:
     depends_on:
       postgres:
         condition: service_healthy
+      urlshortener-database-init:
+        condition: service_completed_successfully
     environment:
       SPRING_PROFILES_ACTIVE: postgres-dev
       DB_HOST: postgres
       DB_PORT: 5432
       DB_NAME: urlshortener
-      DB_USER: postgres
-      DB_PASSWORD: password
+      DB_USER: urlshortener
+      DB_PASSWORD: local-urlshortener-password
       APP_BASE_URL: http://localhost:8080
+    networks:
+      - default
+      - local-database
     ports:
       - "8080:8080"
     healthcheck:
@@ -62,4 +85,10 @@ services:
       - "80:80"
 
 volumes:
-  postgres_data:
+  local-postgres-data:
+    name: url-shortener_postgres_data
+    external: true
+
+networks:
+  local-database:
+    name: avinash-local-database

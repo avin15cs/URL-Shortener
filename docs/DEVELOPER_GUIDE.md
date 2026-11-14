@@ -38,10 +38,12 @@ Start both development servers with one command:
 npm run dev
 ```
 
-This starts the Spring Boot backend with its default H2 profile on port `8080` and
-the Vite frontend with hot reload on port `5173`. Output is labeled `backend` and
-`frontend`; if either process fails, the other is stopped. Press `Ctrl+C` once to
-stop the complete local stack.
+This idempotently starts the shared `postgres-db` container, provisions the isolated
+`urlshortener` database and role, applies Liquibase changesets, starts Spring Boot with
+the `postgres-dev` profile on port `8080`, and starts Vite with hot reload on port `5173`.
+Output is labeled `backend` and `frontend`; if either process fails, the other is stopped.
+Press `Ctrl+C` once to stop the application processes. PostgreSQL remains available for
+Auth Server or the next URL Shortener run.
 
 Do not run this command at the same time as the Docker Compose stack because both
 backends bind port `8080`. Run `docker compose down` first when switching from the
@@ -61,22 +63,19 @@ To start only one service from the repository root, use `npm run dev:backend` or
 
 ### A. Backend Development (Spring Boot)
 
-The default profile uses an in-memory **H2 database**, so no external database is needed for local dev:
+The root backend command uses the shared PostgreSQL database:
 
 ```bash
-cd backend
-mvn spring-boot:run
+npm run dev:backend
 ```
 
 * **API Base**: `http://localhost:8080`
 * **Swagger UI Docs**: `http://localhost:8080/swagger-ui.html`
 * **OpenAPI Spec**: `http://localhost:8080/v3/api-docs`
 * **Health Check**: `http://localhost:8080/actuator/health`
-* **H2 Web Console**: `http://localhost:8080/api/h2-console/`
-  * JDBC URL: `jdbc:h2:mem:urlshortenerdb`
-  * Username: `sa`
-  * Password: *(empty)*
-* Hibernate creates and drops the disposable H2 schema from the JPA mappings.
+Liquibase owns the PostgreSQL schema and Hibernate validates it. To run the backend alone with
+the disposable H2 default profile, execute `mvn spring-boot:run` directly from `backend/`.
+That isolated mode retains the H2 console at `http://localhost:8080/api/h2-console/`.
 
 ### B. Frontend Development (React + Vite)
 
@@ -98,27 +97,26 @@ npm run dev
 To test the complete production-like stack locally with a real PostgreSQL database:
 
 ```bash
-docker compose up --build
+npm run compose:up
 ```
 
 Services started:
-* **PostgreSQL 15.19** (hardened local image based on `postgres:15.19-alpine3.24`): `127.0.0.1:5432` (host loopback only)
+* **PostgreSQL 15.19** (`postgres-db`, shared with Auth Server): `127.0.0.1:5432` (host loopback only)
 * **Backend**: `localhost:8080`
 * **Frontend**: `localhost:80` (or `http://localhost`)
 
-Docker Compose activates the `postgres-dev` Spring profile. Hibernate uses `ddl-auto: update`
-for this local development database. The `prod` profile remains on `ddl-auto: validate` and
-must be paired with Liquibase before the first persistent deployment.
+Docker Compose activates the `postgres-dev` Spring profile. Liquibase applies versioned
+changesets and Hibernate uses `ddl-auto: validate`. Production uses the same migration model
+with a service-specific PostgreSQL endpoint.
 
-The PostgreSQL base image is pinned to an exact database and Alpine version. The local
-Dockerfile applies current Alpine 3.24 security updates and rebuilds the entrypoint's `gosu`
-helper from its pinned upstream source commit. To build/start only PostgreSQL, verify it,
-and open `psql`:
+Both repositories declare the same pinned PostgreSQL service, Compose project, network, volume,
+and container name. Whichever starts first creates `postgres-db`; the other reuses it and runs
+only its idempotent database initializer. To ensure PostgreSQL, verify it, and open `psql`:
 
 ```bash
-docker compose up -d --build postgres
-docker compose ps
-docker exec -it urlshortener-db psql -U postgres -d urlshortener
+npm run db:ensure
+docker ps --filter name=postgres-db
+docker exec -it postgres-db psql -U urlshortener -d urlshortener
 ```
 
 Use `\q` to leave `psql`.
@@ -132,8 +130,8 @@ Create a PostgreSQL data source with these local-development settings:
 | Host | `localhost` |
 | Port | `5432` |
 | Database | `urlshortener` |
-| User | `postgres` |
-| Password | `password` |
+| User | `urlshortener` |
+| Password | `local-urlshortener-password` |
 | Schema | `public` |
 | JDBC URL | `jdbc:postgresql://localhost:5432/urlshortener` |
 
@@ -141,19 +139,32 @@ Download the PostgreSQL driver when the IDE prompts, then use **Test Connection*
 credentials are intentionally local-only and must not be reused in a shared or production
 environment.
 
-To stop all containers and retain data volume:
+To stop the URL Shortener application containers while retaining the shared database:
 ```bash
-docker compose down
+docker compose stop backend frontend
 ```
 
-To stop containers and wipe database volumes:
+Stop `postgres-db` only when neither application needs it:
 ```bash
-docker compose down -v
+docker stop postgres-db
 ```
+
+Never use `docker compose down -v` for ordinary development. The
+`url-shortener_postgres_data` volume contains both services' local databases.
+
+## 4. Database Changes
+
+- Add ordered formatted-SQL changesets under
+  `backend/src/main/resources/db/changelog/changes/` and include them from the master changelog.
+- Never edit a changeset that has been applied.
+- PostgreSQL profiles run Liquibase before Hibernate validation.
+- The original baseline marks itself applied when adopting an existing Hibernate-created
+  `urls` table; subsequent schema changes always use forward changesets.
+- PostgreSQL Testcontainers verifies the changelog against the real database engine.
 
 ---
 
-## 4. Running Tests
+## 5. Running Tests
 
 ### Backend Unit Tests:
 ```bash
@@ -170,7 +181,7 @@ npm run lint
 
 ---
 
-## 5. Git Workflow for Features
+## 6. Git Workflow for Features
 
 Always branch off `dev`:
 
@@ -194,7 +205,7 @@ git push -u origin feature/my-new-feature
 
 ---
 
-## 6. Managing the Roadmap from Markdown
+## 7. Managing the Roadmap from Markdown
 
 [`ROADMAP.md`](ROADMAP.md) is the source of truth for planned work. When a roadmap
 change reaches `dev`, GitHub Actions creates or updates the corresponding labels,

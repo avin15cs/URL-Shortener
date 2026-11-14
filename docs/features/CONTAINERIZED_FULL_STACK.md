@@ -20,23 +20,26 @@ Frontend Nginx ---- /api and /{shortCode} ----> Backend :8080
 Start or rebuild the stack from the repository root:
 
 ```bash
-docker compose up --build
+npm run compose:up
 ```
 
-Stop containers while retaining the database volume with `docker compose down`. Use
-`docker compose down -v` only when the local PostgreSQL data should be deleted.
+Stop only the URL Shortener application containers with
+`docker compose stop backend frontend`. The database is shared with Auth Server and has an
+independent lifecycle.
 
 ## PostgreSQL Service
 
-- Built from `postgres/Dockerfile` and pinned to PostgreSQL 15.19 on Alpine 3.24.
+- Uses the pinned official PostgreSQL 15.19/Alpine 3.24 image.
+- Uses the stable container name `postgres-db`, shared Compose project, and Docker network
+  declared identically in Auth Server and URL Shortener.
 - Publishes port 5432 only on host loopback (`127.0.0.1`).
-- Stores data in the named `postgres_data` volume.
+- Stores both isolated local databases in the named `url-shortener_postgres_data` volume.
 - Uses a `pg_isready` health check before the backend may start.
 - Uses local-only development credentials from `docker-compose.yml`; these are not
   production secrets.
 
-The image applies current Alpine packages and rebuilds the privilege-dropping `gosu`
-helper from its pinned source commit for reproducibility.
+The one-shot `urlshortener-database-init` service idempotently creates the dedicated database
+and role. It never creates Auth Server tables or runs Auth Server migrations.
 
 ## Backend Service
 
@@ -44,10 +47,9 @@ The multi-stage image builds the JAR with Maven and runs it on a pinned Java 21 
 the non-root `spring` user. Compose activates the `postgres-dev` profile and supplies
 database connection variables plus the public base URL.
 
-The service waits for PostgreSQL health, publishes port 8080, and reports its own health
-through `/actuator/health`. The development PostgreSQL profile permits Hibernate
-`ddl-auto: update`; the production profile remains `validate` and requires a migration
-owner before persistent deployment.
+The service waits for PostgreSQL health and database initialization, publishes port 8080, and
+reports its own health through `/actuator/health`. Liquibase applies pending changesets before
+Hibernate validates the schema in both PostgreSQL profiles.
 
 ## Frontend and Edge Routing
 
@@ -70,21 +72,22 @@ Nginx:
 | `DB_HOST` | Compose service name `postgres` |
 | `DB_PORT` | `5432` |
 | `DB_NAME` | `urlshortener` |
-| `DB_USER` | Local PostgreSQL user |
-| `DB_PASSWORD` | Local-only development password |
+| `DB_USER` | `urlshortener` |
+| `DB_PASSWORD` | Local-only URL Shortener password |
 | `APP_BASE_URL` | Public backend URL used in generated short links |
 
 ## Ownership Boundaries
 
 Update this document for Dockerfiles, Compose topology, PostgreSQL container behavior,
 container health/dependencies, Nginx production routing, image hardening, volumes, or
-container-facing environment variables. Native H2/Vite startup belongs in
+container-facing environment variables. Native Spring Boot/Vite startup belongs in
 `LOCAL_DEVELOPMENT_WORKFLOW.md`.
 
 ## Primary Implementation Files
 
 - `docker-compose.yml`
-- `postgres/Dockerfile`
+- `postgres/init-urlshortener.sql`
+- `scripts/ensure-local-postgres.mjs`
 - `backend/Dockerfile`
 - `frontend/Dockerfile`
 - `frontend/nginx.conf`
