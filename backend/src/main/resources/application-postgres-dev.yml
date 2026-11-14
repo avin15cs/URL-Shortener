@@ -5,15 +5,17 @@ spring:
   datasource:
     url: jdbc:postgresql://${DB_HOST:localhost}:${DB_PORT:5432}/${DB_NAME:urlshortener}
     driver-class-name: org.postgresql.Driver
-    username: ${DB_USER:postgres}
-    password: ${DB_PASSWORD:password}
+    username: ${DB_USER:urlshortener}
+    password: ${DB_PASSWORD:local-urlshortener-password}
+
+  liquibase:
+    enabled: true
+    change-log: classpath:/db/changelog/db.changelog-master.yaml
 
   jpa:
     open-in-view: false
     hibernate:
-      # Development only: evolve the disposable local schema from JPA mappings.
-      # Persistent/shared environments must use Liquibase plus ddl-auto=validate.
-      ddl-auto: update
+      ddl-auto: validate
     show-sql: true
 
   h2:

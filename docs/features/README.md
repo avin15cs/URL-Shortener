@@ -42,10 +42,10 @@ chronological collection of individual tasks.
 | URL Shortening and Redirection | Link creation, Sqids, custom aliases, reserved paths, expiry enforcement, and public redirects | [URL_SHORTENING_AND_REDIRECTION.md](URL_SHORTENING_AND_REDIRECTION.md) |
 | Link Management and Click Analytics | Link listing, lookup, copying, refresh, soft deletion, dashboard cards, and aggregate click counts | [LINK_MANAGEMENT_AND_CLICK_ANALYTICS.md](LINK_MANAGEMENT_AND_CLICK_ANALYTICS.md) |
 | API Documentation and Observability | OpenAPI, Swagger UI, Actuator, health checks, application diagnostics, and the H2 console | [API_DOCUMENTATION_AND_OBSERVABILITY.md](API_DOCUMENTATION_AND_OBSERVABILITY.md) |
-| Containerized Full Stack | Docker images, Compose topology, PostgreSQL, Nginx routing, health, volumes, and container configuration | [CONTAINERIZED_FULL_STACK.md](CONTAINERIZED_FULL_STACK.md) |
+| Containerized Full Stack | Docker images, shared local PostgreSQL, Liquibase, Compose topology, Nginx routing, health, volumes, and container configuration | [CONTAINERIZED_FULL_STACK.md](CONTAINERIZED_FULL_STACK.md) |
 | CI/CD and Release Automation | Branch promotion, application CI, Docker validation, GHCR publication, and GitHub Releases | [CI_CD_AND_RELEASE_AUTOMATION.md](CI_CD_AND_RELEASE_AUTOMATION.md) |
 | Roadmap Issue and Project Synchronization | Markdown roadmap parsing, owned issues, labels, milestones, and optional Project v2 synchronization | [ROADMAP_ISSUE_AND_PROJECT_SYNC.md](ROADMAP_ISSUE_AND_PROJECT_SYNC.md) |
-| Local Development Workflow | Root dependency installation and combined native Spring Boot/Vite startup | [LOCAL_DEVELOPMENT_WORKFLOW.md](LOCAL_DEVELOPMENT_WORKFLOW.md) |
+| Local Development Workflow | Root dependency installation, shared database bootstrap, and combined native Spring Boot/Vite startup | [LOCAL_DEVELOPMENT_WORKFLOW.md](LOCAL_DEVELOPMENT_WORKFLOW.md) |
 
 Add one row whenever a distinct end-to-end feature document is introduced. Keep the
 feature name and scope specific enough that future agents can identify the correct

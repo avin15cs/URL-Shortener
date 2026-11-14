@@ -31,7 +31,8 @@ npm run dev
 | Service | Address | Development behavior |
 | :--- | :--- | :--- |
 | Frontend | `http://localhost:5173` | Vite hot reload and `/api` proxying |
-| Backend | `http://localhost:8080` | Spring Boot DevTools with the in-memory H2 profile |
+| Backend | `http://localhost:8080` | Spring Boot DevTools with the `postgres-dev` profile |
+| PostgreSQL | `127.0.0.1:5432` | Shared `postgres-db` container with an isolated `urlshortener` database |
 
 The command prefixes output with `frontend` or `backend`. If either process fails,
 `concurrently` stops the companion process. In an interactive terminal, press `Ctrl+C`
@@ -44,17 +45,22 @@ npm run dev:backend
 npm run dev:frontend
 ```
 
+`npm run dev` and `npm run dev:backend` first invoke `npm run db:ensure`. The bootstrap
+creates or reuses `postgres-db`, waits for health, and idempotently creates the URL Shortener
+database and role. Auth Server declares the identical PostgreSQL service and provisions its own
+`authserver` database, so either repository may be started first.
+
 ## Native Development Versus Docker Compose
 
-`npm run dev` is intended for fast native development with H2 and hot reload.
-`docker compose up --build` remains the production-like workflow with PostgreSQL and
-Nginx.
+`npm run dev` uses native Spring Boot/Vite processes with shared PostgreSQL and hot reload.
+`npm run compose:up` uses the same database but runs the backend and Nginx frontend in
+containers.
 
 Do not run both workflows simultaneously: their backend services both bind host port
 `8080`. Stop the Compose stack before native development:
 
 ```bash
-docker compose down
+docker compose stop backend frontend
 ```
 
 ## Windows PowerShell
@@ -83,13 +89,15 @@ The implementation was validated with:
 - A clean root `npm ci`, including the frontend postinstall; both audits reported zero
   known vulnerabilities.
 - Frontend linting and a production Vite build.
-- All nine backend Maven tests.
+- All backend Maven tests, including a fresh PostgreSQL Liquibase migration through
+  Testcontainers.
+- Existing-volume adoption with the original URL row preserved.
 - Combined startup with HTTP 200 from Vite and `UP` from Spring Boot Actuator.
 
 ## Ownership Boundaries
 
 Update this document for changes to root npm scripts, native frontend/backend startup,
-local ports, local dependency installation, H2-based combined development, or related
+local ports, local dependency installation, PostgreSQL bootstrap, or related
 troubleshooting. Container topology belongs in `CONTAINERIZED_FULL_STACK.md`.
 
 ## Primary Implementation Files
@@ -100,3 +108,5 @@ troubleshooting. Container topology belongs in `CONTAINERIZED_FULL_STACK.md`.
 - `frontend/vite.config.ts`
 - `backend/pom.xml`
 - `backend/src/main/resources/application.yml`
+- `backend/src/main/resources/application-postgres-dev.yml`
+- `scripts/ensure-local-postgres.mjs`

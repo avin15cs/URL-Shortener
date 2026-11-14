@@ -24,6 +24,7 @@ This document tracks every major engineering milestone, architectural decision, 
 | **14. Public Repository Security Hardening** | v1.0.7 | ✅ Completed | Removed known npm advisories with exact Vite 7.3.8/plugin-react 5.2.0 upgrades, raised the Node floor to 22.12, and limited local PostgreSQL exposure to loopback. |
 | **15. Roadmap Issue & Project Sync** | v1.0.8 | ✅ Completed | `docs/ROADMAP.md` declaratively manages owned GitHub issues, labels, milestones, and optional GitHub Project membership through a tested Actions workflow. |
 | **16. Local Development Workflow** | v1.0.9 | ✅ Completed | Added a locked root npm orchestrator that installs frontend dependencies and starts Spring Boot plus Vite with one command. |
+| **17. Shared Local PostgreSQL and Liquibase** | Current development | ✅ Completed | Auth Server and URL Shortener reuse `postgres-db` with isolated databases and roles; URL schema evolution moved from Hibernate updates to tested Liquibase changesets. |
 
 ---
 
@@ -47,8 +48,8 @@ This document tracks every major engineering milestone, architectural decision, 
     * `GET /{shortCode}` — HTTP 302 redirect with click tracking.
   * Environment-specific database config:
     * `application.yml` / `default`: In-memory H2 database with Web Console (`/api/h2-console/`) for rapid local dev.
-    * `application-postgres-dev.yml`: Local Docker PostgreSQL with Hibernate schema updates.
-    * `application-prod.yml`: PostgreSQL configuration with connection pooling for production deployments.
+    * `application-postgres-dev.yml`: Shared local PostgreSQL with Liquibase migrations and Hibernate validation.
+    * `application-prod.yml`: PostgreSQL with Liquibase migrations, Hibernate validation, and deployment-provided connectivity.
 
 ### Phase 2: Frontend Implementation (`frontend/`)
 * **Technology**: React 18, Vite 7.3.8, TypeScript, Vanilla CSS (custom design system), Axios, Lucide React icons.
@@ -120,12 +121,11 @@ This document tracks every major engineering milestone, architectural decision, 
 * Extended the standard Sqids blocklist with application-reserved routes and retained collision retries for custom/legacy aliases.
 * Custom aliases are now stored as the canonical `short_code`, giving redirects one primary public-code namespace.
 * Blank aliases are normalized to `null`, preventing malformed root short URLs.
-* Kept schema generation development-only: H2 uses `create-drop` and Docker PostgreSQL uses the dedicated `postgres-dev` profile with `update`.
-* Reserved Liquibase as the future schema owner before the first persistent or shared deployment; the `prod` profile remains validation-only.
+* Kept H2 schema generation development-only; this decision was later superseded for PostgreSQL by the Liquibase baseline in Phase 15.
 
 ### Phase 10: Local PostgreSQL Docker Hardening
 * Pinned the Docker database image to `postgres:15.19-alpine3.24` for reproducible local environments.
-* Kept local Compose on `postgres-dev`, allowing Hibernate to initialize the disposable local schema while production remains validation-only.
+* Kept local Compose on `postgres-dev`; schema ownership later moved from Hibernate to Liquibase in Phase 15.
 * Removed the production-profile override from the backend image so Compose and deployment environments control the active Spring profile.
 * Installed `curl` in the backend runtime image so its Compose health check can execute successfully.
 * Documented PostgreSQL-only startup, `psql`, DataGrip, and IntelliJ connection settings.
@@ -169,3 +169,15 @@ This document tracks every major engineering milestone, architectural decision, 
   CI/CD releases, roadmap synchronization, and the local development workflow.
 * Strengthened repository agent instructions so documentation review and updates
   are required for every implementation in both new and existing chats.
+
+### Phase 15: Shared Local PostgreSQL and Liquibase
+* Standardized Auth Server and URL Shortener on the same Compose project, container name
+  (`postgres-db`), host port, network, and persistent local volume.
+* Added idempotent repository-local bootstrap scripts so either application can create or reuse
+  PostgreSQL and provision only its own database and role.
+* Preserved the existing URL Shortener volume and added a baseline precondition that adopts an
+  existing `urls` table without deleting its rows.
+* Added Liquibase formatted SQL as the PostgreSQL schema owner and changed Hibernate to
+  `ddl-auto: validate` for local PostgreSQL and production profiles.
+* Added PostgreSQL Testcontainers coverage for fresh-schema migration and retained H2 only for
+  isolated default-profile tests and direct backend runs.

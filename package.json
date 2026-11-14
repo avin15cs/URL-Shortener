@@ -7,9 +7,12 @@
   },
   "scripts": {
     "postinstall": "npm ci --prefix frontend",
-    "dev": "concurrently --kill-others-on-fail --names backend,frontend --prefix-colors yellow,cyan \"npm run dev:backend\" \"npm run dev:frontend\"",
-    "dev:backend": "mvn -f backend/pom.xml spring-boot:run",
-    "dev:frontend": "npm --prefix frontend run dev"
+    "db:ensure": "node scripts/ensure-local-postgres.mjs",
+    "dev": "npm run db:ensure && concurrently --kill-others-on-fail --names backend,frontend --prefix-colors yellow,cyan \"npm run dev:backend:app\" \"npm run dev:frontend\"",
+    "dev:backend": "npm run db:ensure && npm run dev:backend:app",
+    "dev:backend:app": "mvn -f backend/pom.xml spring-boot:run -Dspring-boot.run.profiles=postgres-dev",
+    "dev:frontend": "npm --prefix frontend run dev",
+    "compose:up": "npm run db:ensure && docker compose up --build"
   },
   "devDependencies": {
     "concurrently": "10.0.7"
