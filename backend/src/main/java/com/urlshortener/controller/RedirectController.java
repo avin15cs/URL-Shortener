@@ -1,7 +1,11 @@
 package com.urlshortener.controller;
 
+import com.urlshortener.application.command.RecordClickCommand;
+import com.urlshortener.application.command.UrlCommandService;
+import com.urlshortener.application.query.ResolveShortCodeQuery;
+import com.urlshortener.application.query.ResolvedUrl;
+import com.urlshortener.application.query.UrlQueryService;
 import com.urlshortener.config.AppProperties;
-import com.urlshortener.service.UrlService;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
@@ -17,7 +21,8 @@ import java.net.URI;
 @RequiredArgsConstructor
 public class RedirectController {
 
-    private final UrlService urlService;
+    private final UrlCommandService commandService;
+    private final UrlQueryService queryService;
     private final AppProperties appProperties;
 
     /**
@@ -39,9 +44,10 @@ public class RedirectController {
                     "'" + shortCode + "' is a reserved path");
         }
 
-        String originalUrl = urlService.resolveShortCode(shortCode);
+        ResolvedUrl resolvedUrl = queryService.handle(new ResolveShortCodeQuery(shortCode));
+        commandService.handle(new RecordClickCommand(resolvedUrl.id()));
         HttpHeaders headers = new HttpHeaders();
-        headers.setLocation(URI.create(originalUrl));
+        headers.setLocation(URI.create(resolvedUrl.originalUrl()));
         return ResponseEntity.status(HttpStatus.FOUND).headers(headers).build();
     }
 }

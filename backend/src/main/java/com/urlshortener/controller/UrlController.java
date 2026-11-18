@@ -1,9 +1,15 @@
 package com.urlshortener.controller;
 
+import com.urlshortener.application.command.CreateShortUrlCommand;
+import com.urlshortener.application.command.DeactivateUrlCommand;
+import com.urlshortener.application.command.UrlCommandService;
+import com.urlshortener.application.query.GetUrlByIdQuery;
+import com.urlshortener.application.query.GetUrlStatsQuery;
+import com.urlshortener.application.query.ListUrlsQuery;
+import com.urlshortener.application.query.UrlQueryService;
 import com.urlshortener.dto.ApiResponse;
 import com.urlshortener.dto.ShortenUrlRequest;
 import com.urlshortener.dto.UrlResponse;
-import com.urlshortener.service.UrlService;
 import jakarta.validation.Valid;
 import lombok.RequiredArgsConstructor;
 import org.springframework.http.HttpStatus;
@@ -17,7 +23,8 @@ import java.util.List;
 @RequiredArgsConstructor
 public class UrlController {
 
-    private final UrlService urlService;
+    private final UrlCommandService commandService;
+    private final UrlQueryService queryService;
 
     /**
      * POST /api/urls/shorten
@@ -26,7 +33,11 @@ public class UrlController {
     @PostMapping("/shorten")
     public ResponseEntity<ApiResponse<UrlResponse>> shortenUrl(
             @Valid @RequestBody ShortenUrlRequest request) {
-        UrlResponse response = urlService.shortenUrl(request);
+        UrlResponse response = commandService.handle(new CreateShortUrlCommand(
+                request.getOriginalUrl(),
+                request.getCustomAlias(),
+                request.getTitle(),
+                request.getExpiresAt()));
         return ResponseEntity.status(HttpStatus.CREATED)
                 .body(ApiResponse.success(response, "URL shortened successfully"));
     }
@@ -37,7 +48,7 @@ public class UrlController {
      */
     @GetMapping
     public ResponseEntity<ApiResponse<List<UrlResponse>>> getAllUrls() {
-        List<UrlResponse> urls = urlService.getAllUrls();
+        List<UrlResponse> urls = queryService.handle(new ListUrlsQuery());
         return ResponseEntity.ok(ApiResponse.success(urls, "URLs retrieved successfully"));
     }
 
@@ -47,7 +58,7 @@ public class UrlController {
      */
     @GetMapping("/{id}")
     public ResponseEntity<ApiResponse<UrlResponse>> getUrlById(@PathVariable Long id) {
-        UrlResponse response = urlService.getUrlById(id);
+        UrlResponse response = queryService.handle(new GetUrlByIdQuery(id));
         return ResponseEntity.ok(ApiResponse.success(response, "URL retrieved successfully"));
     }
 
@@ -57,7 +68,7 @@ public class UrlController {
      */
     @DeleteMapping("/{id}")
     public ResponseEntity<ApiResponse<Void>> deleteUrl(@PathVariable Long id) {
-        urlService.deleteUrl(id);
+        commandService.handle(new DeactivateUrlCommand(id));
         return ResponseEntity.ok(ApiResponse.success(null, "URL deleted successfully"));
     }
 
@@ -67,7 +78,7 @@ public class UrlController {
      */
     @GetMapping("/{id}/stats")
     public ResponseEntity<ApiResponse<UrlResponse>> getUrlStats(@PathVariable Long id) {
-        UrlResponse response = urlService.getUrlStats(id);
+        UrlResponse response = queryService.handle(new GetUrlStatsQuery(id));
         return ResponseEntity.ok(ApiResponse.success(response, "Stats retrieved successfully"));
     }
 }

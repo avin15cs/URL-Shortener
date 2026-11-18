@@ -36,6 +36,12 @@ read-modify-write operations. Failed redirects do not increment the counter. The
 current analytics capability is aggregate-only; unique visitors, referrers, geography,
 devices, and event history are roadmap work rather than implemented behavior.
 
+The application layer uses code-level CQRS. Listing, ID lookup, statistics, and public
+code resolution are explicit queries handled by `UrlQueryService` in read-only
+transactions. Soft deletion and click recording are explicit commands handled by
+`UrlCommandService`. Both sides intentionally share the same repository and database;
+this feature does not introduce asynchronous events or a separate analytics store.
+
 ## Frontend State and Actions
 
 - `useUrlList` owns loading, error, collection refresh, and local removal after delete.
@@ -55,6 +61,11 @@ The `Url` entity supplies `id`, `originalUrl`, `shortCode`, `customAlias`, `titl
 `clickCount`, timestamps, optional expiry, and `isActive`. The `updatedAt` timestamp is
 maintained by JPA lifecycle callbacks.
 
+## Validation
+
+Backend tests cover list projection, soft deletion, atomic click-command delegation,
+and the boundary that prevents short-code queries from incrementing click counts.
+
 ## Ownership Boundaries
 
 Update this document for link collection behavior, per-ID retrieval, soft deletion,
@@ -64,7 +75,9 @@ Creation and redirect-code behavior belong in `URL_SHORTENING_AND_REDIRECTION.md
 ## Primary Implementation Files
 
 - `backend/src/main/java/com/urlshortener/controller/UrlController.java`
-- `backend/src/main/java/com/urlshortener/service/UrlService.java`
+- `backend/src/main/java/com/urlshortener/application/command/UrlCommandService.java`
+- `backend/src/main/java/com/urlshortener/application/query/UrlQueryService.java`
+- `backend/src/main/java/com/urlshortener/application/mapper/UrlResponseMapper.java`
 - `backend/src/main/java/com/urlshortener/repository/UrlRepository.java`
 - `backend/src/main/java/com/urlshortener/model/Url.java`
 - `frontend/src/App.tsx`

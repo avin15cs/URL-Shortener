@@ -4,8 +4,10 @@
 
 The **URL Shortener** application is designed as a distributed, containerized monorepo split into two primary layers:
 * **Presentation Tier**: React SPA (Single Page Application) with Vite & TypeScript.
-* **Application / API Tier**: Spring Boot 4 RESTful microservice with Spring Data JPA.
-* **Persistence Tier**: PostgreSQL 15.19 with Liquibase for normal local and deployed runs; in-memory H2 remains available for isolated default-profile development and tests.
+* **Application / API Tier**: Spring Boot 4 RESTful service with a code-level CQRS
+  application layer and Spring Data JPA.
+* **Persistence Tier**: PostgreSQL 15.19 with Liquibase for normal local and deployed
+  runs; in-memory H2 remains available for isolated default-profile development and tests.
 
 ```
                  ┌────────────────────────────────┐
@@ -32,6 +34,24 @@ The **URL Shortener** application is designed as a distributed, containerized mo
             │          (Port 5432) — URL Mappings      │
             └──────────────────────────────────────────┘
 ```
+
+### Backend Application Boundaries
+
+The backend applies code-level Command Query Responsibility Segregation (CQRS):
+
+- REST controllers translate HTTP input into explicit command or query records.
+- `UrlCommandService` owns state-changing use cases: link creation, soft deletion,
+  and atomic click recording.
+- `UrlQueryService` owns read-only use cases: listing links, retrieving link details or
+  statistics, and resolving public short codes.
+- `UrlResponseMapper` is shared projection logic so both sides produce consistent API
+  responses without coupling query operations to command handling.
+
+This is an in-process application design, not distributed CQRS. Commands and queries
+share the same Spring Boot deployment, `UrlRepository`, entity model, and database.
+There is no message broker, event sourcing, separate read store, or eventual-consistency
+contract. Query-service transactions are marked read-only; command handlers define
+write transactions.
 
 ---
 
@@ -103,10 +123,13 @@ Sqids are reversible identifiers, not encryption. They prevent sequential IDs fr
 
 When a client hits `GET http://localhost:8080/{shortCode}`:
 1. Controller checks `AppProperties.reservedPaths` to prevent routing collisions.
-2. Queries the canonical `shortCode`; `customAlias` is checked only as a compatibility fallback for older rows.
+2. `RedirectController` sends `ResolveShortCodeQuery` to the read-only query service,
+   which checks canonical `shortCode`; `customAlias` remains a compatibility fallback
+   for older rows.
 3. If non-existent, inactive, or expired: returns `404 Not Found`.
 4. If valid:
-   - Increments `click_count` atomically.
+   - Sends `RecordClickCommand` to the command service, which increments `click_count`
+     synchronously and atomically.
    - Sets `HttpHeaders.LOCATION` to `originalUrl`.
    - Returns HTTP `302 Found` (temporary redirect) to ensure subsequent clicks hit the server for accurate analytics tracking.
 

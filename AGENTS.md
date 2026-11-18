@@ -11,7 +11,7 @@
   * **`backend/`**: Spring Boot 4.1.2 REST API (Java 21, Maven, Spring Data JPA).
     * Database: PostgreSQL 15 with Liquibase for normal local and production-style runs; H2 remains available for isolated default-profile tests and direct backend experiments.
     * Core Entity: `Url` (id, originalUrl, shortCode, customAlias, title, clickCount, timestamps, isActive).
-    * Logic: Sqids-based identifiers with a 7-character minimum, custom alias support with reserved path validation, collision handling, atomic redirect click counter.
+    * Logic: Code-level CQRS with separate command/query application services, Sqids-based identifiers with a 7-character minimum, custom alias support with reserved path validation, collision handling, and an atomic redirect click counter.
     * Tooling: SpringDoc OpenAPI 3.1.1 (`/swagger-ui.html`, `/v3/api-docs`), Actuator (`/actuator/**`), `AppProperties` for YAML-configured reserved paths and CORS.
   * **`frontend/`**: Single Page Application (React 18, TypeScript, Vite, Node 22 LTS, Vanilla CSS).
     * Glassmorphic modern dark-mode aesthetic with Lucide React icons and Toast alerts.

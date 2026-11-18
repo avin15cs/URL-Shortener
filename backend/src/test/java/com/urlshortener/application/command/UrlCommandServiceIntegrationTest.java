@@ -1,6 +1,5 @@
-package com.urlshortener.service;
+package com.urlshortener.application.command;
 
-import com.urlshortener.dto.ShortenUrlRequest;
 import com.urlshortener.dto.UrlResponse;
 import com.urlshortener.repository.UrlRepository;
 import org.junit.jupiter.api.Test;
@@ -13,10 +12,10 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 @SpringBootTest
 @Transactional
-class UrlServiceIntegrationTest {
+class UrlCommandServiceIntegrationTest {
 
     @Autowired
-    private UrlService urlService;
+    private UrlCommandService commandService;
 
     @Autowired
     private UrlRepository urlRepository;
@@ -25,11 +24,11 @@ class UrlServiceIntegrationTest {
     private Sqids sqids;
 
     @Test
-    void shortenUrl_shouldReplacePendingCodeWithSqidBeforeReturning() {
-        ShortenUrlRequest request = new ShortenUrlRequest();
-        request.setOriginalUrl("https://www.example.com/integration");
+    void create_shouldReplacePendingCodeWithSqidBeforeReturning() {
+        CreateShortUrlCommand command = new CreateShortUrlCommand(
+                "https://www.example.com/integration", null, null, null);
 
-        UrlResponse response = urlService.shortenUrl(request);
+        UrlResponse response = commandService.handle(command);
 
         assertThat(response.getId()).isNotNull();
         assertThat(response.getShortCode()).doesNotStartWith("~pending_");
