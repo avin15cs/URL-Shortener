@@ -26,6 +26,7 @@ This document tracks every major engineering milestone, architectural decision, 
 | **16. Local Development Workflow** | v1.0.9 | ✅ Completed | Added a locked root npm orchestrator that installs frontend dependencies and starts Spring Boot plus Vite with one command. |
 | **17. Shared Local PostgreSQL and Liquibase** | Current development | ✅ Completed | Auth Server and URL Shortener reuse `postgres-db` with isolated databases and roles; URL schema evolution moved from Hibernate updates to tested Liquibase changesets. |
 | **18. Code-Level CQRS Application Layer** | v1.0.10 | ✅ Completed | Separated backend state changes and reads into explicit commands, queries, and dedicated application services without changing the REST or persistence contracts. |
+| **19. OAuth Identity, Ownership & Administration** | v1.1.0 | ✅ Completed | Current auth-server BFF login, JWT resource server, audience/scopes, per-subject ownership, `URL_ADMIN` access, service-client isolation, and CSRF-protected React session UX. |
 
 ---
 
@@ -196,3 +197,21 @@ This document tracks every major engineering milestone, architectural decision, 
 * Added command-service, query-service, integration, and redirect-controller tests;
   the rebased backend suite now executes 13 passing tests, including PostgreSQL
   migration coverage inherited from the shared Liquibase milestone.
+
+### Phase 17: OAuth Identity, Ownership, and Administration
+* Integrated the sibling auth-server using confidential Authorization Code with PKCE;
+  access and refresh tokens remain server-side, while its current Google and invited-local
+  login options remain behind the authorization-server boundary.
+* Added JWT resource-server validation for issuer, audience, expiry, `subject_type`,
+  `uid`/`client_id`, `urls.read`, `urls.write`, and audience-specific roles.
+* Added `owner_uid` and `owner_client_id` to URL persistence. Users and service clients
+  see only their own records, while `URL_ADMIN` users can search and manage all records.
+* Added the forward `002-url-ownership.sql` Liquibase migration on top of the shared
+  PostgreSQL baseline; Hibernate continues to validate PostgreSQL profiles.
+* Kept anonymous redirects public while requiring authentication for management and
+  analytics endpoints. Legacy unowned rows are visible only to administrators.
+* Carried authenticated actors through CQRS command/query messages, added
+  `/api/auth/session`, CSRF-protected SPA mutations, neutral provider login UX,
+  container host-gateway auth routing, identity tests, and authorization boundary tests.
+* Expanded the rebased backend suite to 22 passing tests, including user, administrator,
+  and machine-client ownership boundaries plus the forward PostgreSQL migration.

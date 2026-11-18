@@ -5,7 +5,7 @@
 
 ## Purpose and User Flow
 
-A user enters an HTTP or HTTPS destination in the React form, optionally supplies a
+A signed-in user enters an HTTP or HTTPS destination in the React form, optionally supplies a
 title and custom alias, and submits it to `POST /api/urls/shorten`. The backend stores
 the mapping and returns a public short URL. Opening that URL resolves the code, records
 the click, and responds with `302 Found` to the original destination.
@@ -22,6 +22,9 @@ optional ISO date-time `expiresAt`. The current frontend exposes the URL, alias,
 title fields; expiry remains available through the backend contract but is not yet a
 complete frontend feature.
 
+Creation requires `urls.write`. The command stores the auth-server `uid` for a human or
+the OAuth `client_id` for a machine caller. Public redirect resolution remains anonymous.
+
 ## Code Generation and Namespace
 
 Automatic links use the persisted numeric database ID as Sqids input. The shared
@@ -37,6 +40,7 @@ Generated codes and custom aliases occupy one public namespace:
 - Aliases are rejected if either `shortCode` or legacy `customAlias` already owns them.
 - Reserved application paths such as `api`, `actuator`, `swagger-ui`, and `v3` cannot
   be claimed.
+- OAuth routes such as `oauth2`, `login`, and `logout` are also reserved.
 - The database unique constraint on `short_code` is the final collision guarantee.
 - Automatic generation retries with a discriminator up to ten times if a collision is
   detected.
@@ -81,7 +85,7 @@ full reload.
 ## Validation
 
 Backend unit and integration tests cover command-side creation and Sqids persistence,
-query-side code resolution without mutation, and redirect-controller orchestration of
+owner assignment, query-side code resolution without mutation, and redirect-controller orchestration of
 the resolution query followed by the click-recording command.
 
 ## Ownership Boundaries
@@ -89,7 +93,8 @@ the resolution query followed by the click-recording command.
 Update this document for changes to creation, validation, custom aliases, Sqids,
 reserved public paths, expiry enforcement, returned short URLs, or redirect behavior.
 Link listing, deletion, and aggregate analytics belong in
-`LINK_MANAGEMENT_AND_CLICK_ANALYTICS.md`.
+`LINK_MANAGEMENT_AND_CLICK_ANALYTICS.md`. Authentication and ownership rules belong in
+`AUTHENTICATION_AND_URL_OWNERSHIP.md`.
 
 ## Primary Implementation Files
 

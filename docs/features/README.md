@@ -39,6 +39,7 @@ chronological collection of individual tasks.
 
 | End-to-end feature | Scope | Canonical document |
 | :--- | :--- | :--- |
+| Authentication and URL Ownership | Auth Server login, BFF sessions, JWT validation, scopes, CSRF, per-subject ownership, URL administrators, and service clients | [AUTHENTICATION_AND_URL_OWNERSHIP.md](AUTHENTICATION_AND_URL_OWNERSHIP.md) |
 | URL Shortening and Redirection | Link creation, Sqids, custom aliases, reserved paths, expiry enforcement, and public redirects | [URL_SHORTENING_AND_REDIRECTION.md](URL_SHORTENING_AND_REDIRECTION.md) |
 | Link Management and Click Analytics | Link listing, lookup, copying, refresh, soft deletion, dashboard cards, and aggregate click counts | [LINK_MANAGEMENT_AND_CLICK_ANALYTICS.md](LINK_MANAGEMENT_AND_CLICK_ANALYTICS.md) |
 | API Documentation and Observability | OpenAPI, Swagger UI, Actuator, health checks, application diagnostics, and the H2 console | [API_DOCUMENTATION_AND_OBSERVABILITY.md](API_DOCUMENTATION_AND_OBSERVABILITY.md) |

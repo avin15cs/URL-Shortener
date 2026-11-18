@@ -9,6 +9,7 @@ import org.springframework.stereotype.Repository;
 
 import java.util.List;
 import java.util.Optional;
+import java.util.UUID;
 
 @Repository
 public interface UrlRepository extends JpaRepository<Url, Long> {
@@ -22,6 +23,14 @@ public interface UrlRepository extends JpaRepository<Url, Long> {
     boolean existsByCustomAlias(String customAlias);
 
     List<Url> findAllByIsActiveTrueOrderByCreatedAtDesc();
+
+    @Query("SELECT u FROM Url u WHERE u.ownerUid = :ownerUid AND u.isActive = true "
+            + "AND (u.expiresAt IS NULL OR u.expiresAt > CURRENT_TIMESTAMP) ORDER BY u.createdAt DESC")
+    List<Url> findAllActiveAndNonExpiredByOwnerUid(@Param("ownerUid") UUID ownerUid);
+
+    @Query("SELECT u FROM Url u WHERE u.ownerClientId = :clientId AND u.isActive = true "
+            + "AND (u.expiresAt IS NULL OR u.expiresAt > CURRENT_TIMESTAMP) ORDER BY u.createdAt DESC")
+    List<Url> findAllActiveAndNonExpiredByOwnerClientId(@Param("clientId") String clientId);
 
     @Modifying
     @Query("UPDATE Url u SET u.clickCount = u.clickCount + 1 WHERE u.id = :id")

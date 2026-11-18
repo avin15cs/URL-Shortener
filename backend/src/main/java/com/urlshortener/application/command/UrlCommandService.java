@@ -7,6 +7,8 @@ import com.urlshortener.exception.UrlAlreadyExistsException;
 import com.urlshortener.exception.UrlNotFoundException;
 import com.urlshortener.model.Url;
 import com.urlshortener.repository.UrlRepository;
+import com.urlshortener.security.ActorContext;
+import com.urlshortener.security.UrlAccessPolicy;
 import lombok.RequiredArgsConstructor;
 import lombok.extern.slf4j.Slf4j;
 import org.sqids.Sqids;
@@ -32,9 +34,11 @@ public class UrlCommandService {
     private final AppProperties appProperties;
     private final Sqids sqids;
     private final UrlResponseMapper responseMapper;
+    private final UrlAccessPolicy accessPolicy;
 
     @Transactional
     public UrlResponse handle(CreateShortUrlCommand command) {
+        command.actor().requireScope("urls.write");
         String customAlias = normalizeAlias(command.customAlias());
 
         if (customAlias != null) {
@@ -60,6 +64,10 @@ public class UrlCommandService {
                 .customAlias(customAlias)
                 .title(command.title())
                 .expiresAt(expiresAt)
+                .ownerUid(command.actor().subjectType() == ActorContext.SubjectType.USER
+                        ? command.actor().userId() : null)
+                .ownerClientId(command.actor().subjectType() == ActorContext.SubjectType.CLIENT
+                        ? command.actor().clientId() : null)
                 .build();
 
         Url saved = urlRepository.saveAndFlush(url);
@@ -74,9 +82,11 @@ public class UrlCommandService {
 
     @Transactional
     public void handle(DeactivateUrlCommand command) {
+        command.actor().requireScope("urls.write");
         Url url = urlRepository.findById(command.id())
                 .orElseThrow(() -> new UrlNotFoundException(
                         "URL with ID " + command.id() + " not found"));
+        accessPolicy.requireOwnerOrAdmin(url, command.actor());
         url.setIsActive(false);
         urlRepository.save(url);
         log.info("Deactivated URL with ID: {}", command.id());

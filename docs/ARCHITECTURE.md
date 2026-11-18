@@ -8,6 +8,9 @@ The **URL Shortener** application is designed as a distributed, containerized mo
   application layer and Spring Data JPA.
 * **Persistence Tier**: PostgreSQL 15.19 with Liquibase for normal local and deployed
   runs; in-memory H2 remains available for isolated default-profile development and tests.
+* **Identity Tier**: The sibling `auth-server` is the OAuth 2.0 Authorization Server and
+  OpenID Connect Provider. The backend is both a confidential OAuth client/BFF for the
+  React application and a JWT resource server for service clients.
 
 ```
                  ┌────────────────────────────────┐
@@ -70,7 +73,9 @@ CREATE TABLE urls (
     created_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP NOT NULL,
     updated_at TIMESTAMP WITHOUT TIME ZONE DEFAULT CURRENT_TIMESTAMP,
     expires_at TIMESTAMP WITHOUT TIME ZONE,
-    is_active BOOLEAN DEFAULT TRUE NOT NULL
+    is_active BOOLEAN DEFAULT TRUE NOT NULL,
+    owner_uid UUID,
+    owner_client_id VARCHAR(100)
 );
 
 CREATE INDEX idx_urls_short_code ON urls(short_code);
@@ -81,6 +86,9 @@ Liquibase owns PostgreSQL schema evolution and Hibernate validates the resulting
 The initial changeset creates the schema on a new database or marks itself applied when
 adopting the legacy Hibernate-created `urls` table. H2 remains disposable and is generated
 from JPA mappings only when the default profile is started directly.
+
+The ownership changeset adds `owner_uid` and `owner_client_id` to both new and adopted
+schemas. Existing rows remain unowned and are intentionally visible only to `URL_ADMIN`.
 
 Local Auth Server and URL Shortener processes share one container named `postgres-db`, while
 retaining separate databases, roles, and Liquibase histories. Production preserves the same
@@ -99,6 +107,8 @@ database-per-service boundary with independently configured PostgreSQL endpoints
 | `updated_at` | `TIMESTAMP` | Timestamp of last modification. |
 | `expires_at` | `TIMESTAMP` | Optional expiration date/time. |
 | `is_active` | `BOOLEAN` | Soft-delete and active status flag. |
+| `owner_uid` | `UUID` | Immutable auth-server `uid` for a human-owned link. |
+| `owner_client_id` | `VARCHAR(100)` | OAuth client ID for a machine-owned link. Mutually exclusive with `owner_uid`. |
 
 ---
 
@@ -136,6 +146,35 @@ When a client hits `GET http://localhost:8080/{shortCode}`:
 ---
 
 ## 5. Security & Production Considerations
+
+### Authentication and authorization
+
+The React browser starts Authorization Code login through
+`/oauth2/authorization/auth-server`. The auth-server UI supports Google and explicitly
+invited local accounts. The backend uses PKCE as a confidential client,
+keeps access and rotated refresh tokens server-side, and exposes only its HttpOnly
+session cookie plus a CSRF token to the SPA. `GET /api/auth/session` returns the current
+display identity, audience-scoped roles, and CSRF token; it never returns OAuth tokens.
+
+The same backend accepts bearer JWTs for automation. JWT validation checks the auth-server
+signature, exact issuer, expiry, and the `url-shortener-api` audience. `urls.read` gates
+reads and `urls.write` gates mutations. Human tokens must have `subject_type=user` and a
+valid UUID `uid`; machine tokens must have `subject_type=client` and `client_id`, and are
+rejected if they contain human roles.
+
+Data visibility is resolved before mapping entities to API responses:
+
+| Identity | Visible/manageable URLs |
+| :--- | :--- |
+| User | URLs whose `owner_uid` matches the token `uid`. |
+| User with `URL_ADMIN` | All URLs, including legacy unowned rows. |
+| Service client | URLs whose `owner_client_id` matches its `client_id`; it cannot impersonate a user. |
+
+Public `GET /{shortCode}` redirects remain anonymous. All URL management and analytics
+endpoints require authentication. Existing rows without either owner field are intentionally
+admin-only instead of being assigned to an arbitrary user. The management command and
+query messages carry the resolved actor into their respective CQRS handlers, while public
+redirect resolution and atomic click recording remain anonymous.
 
 * **Non-Root Docker execution**: Backend runs under the unprivileged `spring:spring` user; the frontend uses the pinned Nginx Alpine slim runtime. Local PostgreSQL uses the pinned official PostgreSQL image and binds only to host loopback.
 * **CORS Policy**: Configured via `app.cors.allowed-origins` in `application.yml` and injected into `WebConfig`. Supports environment override via `${CORS_ALLOWED_ORIGIN}`.

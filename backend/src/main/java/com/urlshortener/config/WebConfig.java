@@ -19,7 +19,7 @@ public class WebConfig implements WebMvcConfigurer {
         List<String> origins = appProperties.getCors().getAllowedOrigins();
         String[] allowedOrigins = (origins != null && !origins.isEmpty())
                 ? origins.toArray(new String[0])
-                : new String[]{"http://localhost:5173", "http://localhost:3000"};
+                : new String[]{"http://localhost:5174", "http://localhost:5173", "http://localhost:3000"};
 
         registry.addMapping("/**")
                 .allowedOrigins(allowedOrigins)

@@ -12,6 +12,8 @@ Browser :80
     |
     v
 Frontend Nginx ---- /api and /{shortCode} ----> Backend :8080
+    |                                              |
+    +---- OAuth browser redirects ----------------+----> Auth Server :9000 (host)
                                                    |
                                                    v
                                             PostgreSQL :5432
@@ -47,6 +49,10 @@ The multi-stage image builds the JAR with Maven and runs it on a pinned Java 21 
 the non-root `spring` user. Compose activates the `postgres-dev` profile and supplies
 database connection variables plus the public base URL.
 
+The sibling Auth Server remains a separately deployed service. Compose uses the public
+issuer/authorization URL `http://localhost:9000` and routes backend token, UserInfo, and
+JWKS calls through `host.docker.internal:9000` with a host-gateway mapping.
+
 The service waits for PostgreSQL health and database initialization, publishes port 8080, and
 reports its own health through `/actuator/health`. Liquibase applies pending changesets before
 Hibernate validates the schema in both PostgreSQL profiles.
@@ -59,6 +65,7 @@ a pinned Nginx Alpine runtime on host port 80.
 Nginx:
 
 - Proxies `/api/` to the backend API.
+- Proxies `/oauth2/**`, `/login/**`, and `/logout` to the backend BFF.
 - Proxies single-segment alphanumeric, underscore, and hyphen paths to backend redirect
   resolution.
 - Falls back to `index.html` for SPA routes.
@@ -75,6 +82,10 @@ Nginx:
 | `DB_USER` | `urlshortener` |
 | `DB_PASSWORD` | Local-only URL Shortener password |
 | `APP_BASE_URL` | Public backend URL used in generated short links |
+| `FRONTEND_URL` | Login/logout success URL (`http://localhost` in Compose) |
+| `AUTH_ISSUER` / `AUTH_AUDIENCE` | Exact JWT issuer and `url-shortener-api` audience |
+| `AUTH_*_URI` | Browser-public authorization URI and container-reachable token/JWKS/UserInfo URIs |
+| `URL_SHORTENER_CLIENT_ID` / `URL_SHORTENER_CLIENT_SECRET` | Confidential Auth Server client credentials |
 
 ## Ownership Boundaries
 

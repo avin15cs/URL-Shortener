@@ -10,8 +10,9 @@
 * **Architecture**: Monorepo with two independent application directories:
   * **`backend/`**: Spring Boot 4.1.2 REST API (Java 21, Maven, Spring Data JPA).
     * Database: PostgreSQL 15 with Liquibase for normal local and production-style runs; H2 remains available for isolated default-profile tests and direct backend experiments.
-    * Core Entity: `Url` (id, originalUrl, shortCode, customAlias, title, clickCount, timestamps, isActive).
-    * Logic: Code-level CQRS with separate command/query application services, Sqids-based identifiers with a 7-character minimum, custom alias support with reserved path validation, collision handling, and an atomic redirect click counter.
+    * Core Entity: `Url` (id, originalUrl, shortCode, customAlias, title, clickCount, timestamps, isActive, ownerUid, ownerClientId).
+    * Identity: Confidential OAuth client/BFF plus JWT resource server integration with the sibling Auth Server; immutable `uid`/`client_id` ownership and audience-scoped `URL_ADMIN` access.
+    * Logic: Code-level CQRS with separate command/query application services, actor-aware ownership enforcement, Sqids-based identifiers with a 7-character minimum, custom alias support with reserved path validation, collision handling, and an atomic redirect click counter.
     * Tooling: SpringDoc OpenAPI 3.1.1 (`/swagger-ui.html`, `/v3/api-docs`), Actuator (`/actuator/**`), `AppProperties` for YAML-configured reserved paths and CORS.
   * **`frontend/`**: Single Page Application (React 18, TypeScript, Vite, Node 22 LTS, Vanilla CSS).
     * Glassmorphic modern dark-mode aesthetic with Lucide React icons and Toast alerts.
@@ -73,9 +74,9 @@ defer documentation to a later chat or follow-up task.
 ## 5. Quick Commands Reference
 
 * **Install Local Dependencies**: `npm ci` (run once from the repository root)
-* **Run Backend + Frontend Locally**: `npm run dev` (Ports 8080 and 5173)
+* **Run Backend + Frontend Locally**: `npm run dev` (Ports 8080 and 5174; Auth Server uses 9000/5173)
 * **Run Backend Locally**: `npm run dev:backend` (Port 8080)
-* **Run Frontend Locally**: `npm run dev:frontend` (Port 5173)
+* **Run Frontend Locally**: `npm run dev:frontend` (Port 5174)
 * **Run Full Docker Stack**: `npm run compose:up` (Port 80, 8080, 5432)
 * **Run Tests**:
   * Backend: `cd backend && mvn test`

@@ -1,4 +1,6 @@
 package com.urlshortener.application.query;
 
-public record GetUrlByIdQuery(Long id) {
+import com.urlshortener.security.ActorContext;
+
+public record GetUrlByIdQuery(Long id, ActorContext actor) {
 }

@@ -20,8 +20,9 @@ refresh the collection, and soft-delete a mapping.
 | `DELETE` | `/api/urls/{id}` | Soft-delete the mapping by setting `isActive=false` |
 
 Responses use the shared `ApiResponse` envelope and `UrlResponse` projection. The
-public collection excludes soft-deleted and expired mappings; direct ID lookup exposes
-the stored record and is not currently an authenticated ownership boundary.
+collection excludes soft-deleted and expired mappings. Normal users and service clients
+see only their owned rows; `URL_ADMIN` users see all rows. Direct ID/statistics lookup and
+soft deletion enforce the same owner-or-admin boundary.
 
 ## Click Accounting
 
@@ -58,13 +59,14 @@ excluded from active listing and redirect resolution.
 ## Data Used by the Feature
 
 The `Url` entity supplies `id`, `originalUrl`, `shortCode`, `customAlias`, `title`,
-`clickCount`, timestamps, optional expiry, and `isActive`. The `updatedAt` timestamp is
-maintained by JPA lifecycle callbacks.
+`clickCount`, timestamps, optional expiry, `isActive`, `ownerUid`, and `ownerClientId`.
+The `updatedAt` timestamp is maintained by JPA lifecycle callbacks.
 
 ## Validation
 
 Backend tests cover list projection, soft deletion, atomic click-command delegation,
-and the boundary that prevents short-code queries from incrementing click counts.
+owner/admin filtering, scope enforcement, cross-owner rejection, and the boundary that
+prevents short-code queries from incrementing click counts.
 
 ## Ownership Boundaries
 

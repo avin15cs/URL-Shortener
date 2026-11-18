@@ -5,6 +5,8 @@ import com.urlshortener.dto.UrlResponse;
 import com.urlshortener.exception.UrlNotFoundException;
 import com.urlshortener.model.Url;
 import com.urlshortener.repository.UrlRepository;
+import com.urlshortener.security.ActorContext;
+import com.urlshortener.security.UrlAccessPolicy;
 import lombok.RequiredArgsConstructor;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
@@ -18,20 +20,28 @@ public class UrlQueryService {
 
     private final UrlRepository urlRepository;
     private final UrlResponseMapper responseMapper;
+    private final UrlAccessPolicy accessPolicy;
 
     public List<UrlResponse> handle(ListUrlsQuery query) {
-        return urlRepository.findAllActiveAndNonExpired()
+        query.actor().requireScope("urls.read");
+        return findVisibleUrls(query.actor())
                 .stream()
                 .map(responseMapper::toResponse)
                 .toList();
     }
 
     public UrlResponse handle(GetUrlByIdQuery query) {
-        return responseMapper.toResponse(findById(query.id()));
+        query.actor().requireScope("urls.read");
+        Url url = findById(query.id());
+        accessPolicy.requireOwnerOrAdmin(url, query.actor());
+        return responseMapper.toResponse(url);
     }
 
     public UrlResponse handle(GetUrlStatsQuery query) {
-        return responseMapper.toResponse(findById(query.id()));
+        query.actor().requireScope("urls.read");
+        Url url = findById(query.id());
+        accessPolicy.requireOwnerOrAdmin(url, query.actor());
+        return responseMapper.toResponse(url);
     }
 
     public ResolvedUrl handle(ResolveShortCodeQuery query) {
@@ -55,5 +65,15 @@ public class UrlQueryService {
     private Url findById(Long id) {
         return urlRepository.findById(id)
                 .orElseThrow(() -> new UrlNotFoundException("URL with ID " + id + " not found"));
+    }
+
+    private List<Url> findVisibleUrls(ActorContext actor) {
+        if (actor.isAdmin()) {
+            return urlRepository.findAllActiveAndNonExpired();
+        }
+        if (actor.subjectType() == ActorContext.SubjectType.USER) {
+            return urlRepository.findAllActiveAndNonExpiredByOwnerUid(actor.userId());
+        }
+        return urlRepository.findAllActiveAndNonExpiredByOwnerClientId(actor.clientId());
     }
 }
