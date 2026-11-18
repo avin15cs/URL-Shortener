@@ -48,10 +48,12 @@ Sqids obscure sequential IDs but are not encryption, secrets, or authorization t
 1. Nginx proxies single-segment public codes to the backend in the containerized stack;
    native short URLs already use the backend base URL.
 2. `RedirectController` rejects configured reserved routes.
-3. `UrlService` looks up the canonical `shortCode`, with `customAlias` retained only as
-   a compatibility fallback for older rows.
+3. `RedirectController` sends `ResolveShortCodeQuery` to `UrlQueryService`, which looks
+   up canonical `shortCode` with `customAlias` retained only as a compatibility fallback
+   for older rows.
 4. Missing, inactive, or expired mappings return not-found behavior.
-5. The repository increments `clickCount` atomically.
+5. The controller sends `RecordClickCommand` to `UrlCommandService`, which increments
+   `clickCount` synchronously and atomically through the repository.
 6. The backend returns `302 Found` with the original URL in the `Location` header.
 
 ## Frontend Experience
@@ -76,6 +78,12 @@ full reload.
 - Unexpected backend failures use the common API error response from
   `GlobalExceptionHandler`.
 
+## Validation
+
+Backend unit and integration tests cover command-side creation and Sqids persistence,
+query-side code resolution without mutation, and redirect-controller orchestration of
+the resolution query followed by the click-recording command.
+
 ## Ownership Boundaries
 
 Update this document for changes to creation, validation, custom aliases, Sqids,
@@ -87,7 +95,9 @@ Link listing, deletion, and aggregate analytics belong in
 
 - `backend/src/main/java/com/urlshortener/controller/UrlController.java`
 - `backend/src/main/java/com/urlshortener/controller/RedirectController.java`
-- `backend/src/main/java/com/urlshortener/service/UrlService.java`
+- `backend/src/main/java/com/urlshortener/application/command/UrlCommandService.java`
+- `backend/src/main/java/com/urlshortener/application/query/UrlQueryService.java`
+- `backend/src/main/java/com/urlshortener/application/mapper/UrlResponseMapper.java`
 - `backend/src/main/java/com/urlshortener/config/SqidsConfig.java`
 - `backend/src/main/java/com/urlshortener/config/AppProperties.java`
 - `backend/src/main/java/com/urlshortener/model/Url.java`

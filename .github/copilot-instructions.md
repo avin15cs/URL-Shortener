@@ -4,7 +4,7 @@ This repository is a full-stack URL Shortener monorepo. When assisting in this r
 
 ## Architecture & Stack
 - **Frontend** (`frontend/`): React 18, Vite, TypeScript, Node 22 LTS, Vanilla CSS design system.
-- **Backend** (`backend/`): Spring Boot 4.1.2 (Java 21, Maven, Spring Data JPA, SpringDoc OpenAPI 3.1.1, Actuator).
+- **Backend** (`backend/`): Spring Boot 4.1.2 (Java 21, Maven, code-level CQRS application services, Spring Data JPA, SpringDoc OpenAPI 3.1.1, Actuator).
 - **Database**: H2 in-memory for local development (`application.yml` at `/api/h2-console/`), with PostgreSQL 15.19 pinned for Docker development and PostgreSQL 15 for production (`application-prod.yml`).
 - **Orchestration**: `docker-compose.yml` (PostgreSQL + Backend + Frontend Nginx).
 

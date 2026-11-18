@@ -25,6 +25,7 @@ This document tracks every major engineering milestone, architectural decision, 
 | **15. Roadmap Issue & Project Sync** | v1.0.8 | ✅ Completed | `docs/ROADMAP.md` declaratively manages owned GitHub issues, labels, milestones, and optional GitHub Project membership through a tested Actions workflow. |
 | **16. Local Development Workflow** | v1.0.9 | ✅ Completed | Added a locked root npm orchestrator that installs frontend dependencies and starts Spring Boot plus Vite with one command. |
 | **17. Shared Local PostgreSQL and Liquibase** | Current development | ✅ Completed | Auth Server and URL Shortener reuse `postgres-db` with isolated databases and roles; URL schema evolution moved from Hibernate updates to tested Liquibase changesets. |
+| **18. Code-Level CQRS Application Layer** | v1.0.10 | ✅ Completed | Separated backend state changes and reads into explicit commands, queries, and dedicated application services without changing the REST or persistence contracts. |
 
 ---
 
@@ -35,10 +36,11 @@ This document tracks every major engineering milestone, architectural decision, 
 * **Core Components**:
   * `Url` JPA Entity: stores `id`, `originalUrl`, `shortCode`, `customAlias`, `title`, `clickCount`, `createdAt`, `updatedAt`, `expiresAt`, `isActive`.
   * `UrlRepository`: Spring Data JPA repository with indexed queries for `shortCode` lookups and exists checks.
-  * `UrlService`:
-    * Generates Sqids from persisted numeric URL IDs with a minimum length of 7.
-    * Supports custom alias generation and validation against reserved paths.
-    * Atomic incrementing for click counts upon redirection.
+  * Code-level CQRS application layer:
+    * `UrlCommandService` handles creation, soft deletion, and atomic click recording.
+    * `UrlQueryService` handles listings, detail/statistics projections, and redirect
+      resolution through read-only transactions.
+    * Explicit command and query records carry each controller use case.
   * `UrlController`:
     * `POST /api/urls/shorten` — Shortens URL with optional custom alias.
     * `GET /api/urls` — Returns all active shortlinks sorted by creation date.
@@ -102,7 +104,7 @@ This document tracks every major engineering milestone, architectural decision, 
 * **YAML-Configured Reserved Paths & Configurable CORS**:
   * Added [`AppProperties`](../backend/src/main/java/com/urlshortener/config/AppProperties.java) (`@ConfigurationProperties(prefix = "app")`).
   * `app.reserved-paths` configured in `application.yml`: prevents single-segment routes (`actuator`, `swagger-ui`, `v3`, `favicon.ico`, `api`, `error`, `webjars`) from colliding with `/{shortCode}`.
-  * `UrlService` validates custom aliases against reserved paths to avoid namespace hijacking.
+  * `UrlCommandService` validates custom aliases against reserved paths to avoid namespace hijacking.
   * `app.cors.allowed-origins` configured in `application.yml` and overridable via `${CORS_ALLOWED_ORIGIN}` in production.
 
 ### Phase 7: Node.js 22 LTS Security Hardening
@@ -181,3 +183,16 @@ This document tracks every major engineering milestone, architectural decision, 
   `ddl-auto: validate` for local PostgreSQL and production profiles.
 * Added PostgreSQL Testcontainers coverage for fresh-schema migration and retained H2 only for
   isolated default-profile tests and direct backend runs.
+
+### Phase 16: Code-Level CQRS Application Layer
+* Replaced the combined URL service with dedicated command and query application
+  services while retaining one Spring Boot process and one transactional database.
+* Added explicit messages for create, deactivate, click recording, list, detail,
+  statistics, and public-code resolution use cases.
+* Centralized `UrlResponse` projection in a shared mapper to keep read and write
+  responses consistent.
+* Kept every REST endpoint and response envelope unchanged. Redirect resolution is a
+  read-only query followed by a synchronous atomic click-recording command.
+* Added command-service, query-service, integration, and redirect-controller tests;
+  the rebased backend suite now executes 13 passing tests, including PostgreSQL
+  migration coverage inherited from the shared Liquibase milestone.
